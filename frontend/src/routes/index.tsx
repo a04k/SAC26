@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, ExternalLink, Loader2, Pause, Play, RotateCcw, Volume2, Waves } from 'lucide-react'
+import { ChevronDown, Download, ExternalLink, Loader2, Pause, Play, RotateCcw, Volume2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { phenomena, type PlaySnapshot, type Spec } from '../lib/audio/phenomena'
@@ -8,9 +8,13 @@ import { mechanism } from '../lib/audio/mechanism'
 import { useUI } from '../lib/store'
 import { flyDisc } from '../lib/discFlight'
 import type { Dataset } from '../lib/types'
-import { Jukebox } from '../components/Jukebox'
-import { DiscCrate } from '../components/DiscCrate'
+import { Cabinet } from '../components/Cabinet'
+import { DiscSelector } from '../components/DiscSelector'
+import { Intro } from '../components/Intro'
+import { NowPlaying } from '../components/NowPlaying'
 import { FrameScanner } from '../components/FrameScanner'
+import { Girl } from '../components/Girl'
+import { sceneFor } from '../lib/world'
 import { LoadingDoor } from '../components/LoadingDoor'
 import { Spectrum } from '../components/Spectrum'
 
@@ -103,7 +107,7 @@ function Deck({
 
         <header className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-ink-soft/80">
+            <p className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-[#7c6144cc]">
               side A · track {String(datasets.findIndex((d) => d.id === dataset.id) + 1).padStart(2, '0')} ·{' '}
               {MODEL_WORD[dataset.model] ?? dataset.model}
             </p>
@@ -135,7 +139,7 @@ function Deck({
               />
             ) : (
               <div className="flex aspect-[16/9] items-center justify-center rounded-[18px] border-2 border-[#d8b077] bg-[#3a2716]">
-                <p className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-[0.14em] text-[#ffe9b8]/80">
+                <p className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-[0.14em] text-[#ffe9b8cc]">
                   {loading && <Loader2 size={13} className="animate-spin" />}
                   {loading ? 'measuring the frame…' : 'no measurement yet'}
                 </p>
@@ -158,7 +162,7 @@ function Deck({
                     style={{ width: `${progress * 100}%` }}
                   />
                   <div
-                    className="absolute inset-y-0 w-[3px] rounded-full bg-[#4a3521]/70"
+                    className="absolute inset-y-0 w-[3px] rounded-full bg-[#4a3521b2]"
                     style={{ left: `calc(${progress * 100}% - 1.5px)` }}
                   />
                 </div>
@@ -206,36 +210,34 @@ function Deck({
           </div>
 
           <div className="flex flex-col gap-2.5">
-            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8]/85 p-2.5">
+            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
               <p className="font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
                 how this frame becomes sound
               </p>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-ink/85">
+              <p className="mt-1 text-[11.5px] leading-relaxed text-[#3a2a18d9]">
                 {spec?.explain ?? (loading ? 'The engine is measuring the frame…' : dataset.description)}
               </p>
             </div>
 
             {spec && (
-              <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8]/85 p-2.5">
+              <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
                 <p className="font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
                   what is mapped to what
                 </p>
-                <dl className="mt-1.5 flex flex-col gap-1">
-                  {Object.entries(spec.mapping).map(([k, v]) => (
-                    <div key={k} className="flex items-baseline gap-2 text-[10.5px] leading-snug">
-                      <dt className="w-[38%] shrink-0 font-bold text-[#8a5a1c]">{k}</dt>
-                      <dd className="text-ink/80">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
+                <p className="mt-1 text-[10.5px] font-semibold leading-snug text-[#3a2a18cc]">
+                  {spec.mapping}
+                </p>
+                <p className="mt-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#8a5a1c]">
+                  {spec.layers.length} physical layers
+                </p>
               </div>
             )}
 
-            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8]/85 p-2.5">
+            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
               <p className="font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
                 provenance
               </p>
-              <p className="mt-1 text-[10.5px] leading-relaxed text-ink/80">{dataset.credit}</p>
+              <p className="mt-1 text-[10.5px] leading-relaxed text-[#3a2a18cc]">{dataset.credit}</p>
               <p className="mt-0.5 text-[10px] text-ink-soft">{dataset.source_frame}</p>
               <a
                 href={dataset.svs_url}
@@ -247,7 +249,7 @@ function Deck({
               </a>
             </div>
 
-            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8]/85 p-2.5">
+            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
               <p className="mb-1 font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
                 pull another disc
               </p>
@@ -280,8 +282,8 @@ function Deck({
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t-2 border-dashed border-[#d8b077]/70 pt-2">
-          <p className="text-[10px] font-semibold leading-relaxed text-ink-soft/85">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t-2 border-dashed border-[#d8b077b2] pt-2">
+          <p className="text-[10px] font-semibold leading-relaxed text-[#7c6144d9]">
             {dataset.accessibility}
           </p>
           <button
@@ -309,11 +311,12 @@ export function JukeboxPage() {
     setPlaying,
     volume,
     announce,
+    setLevel,
+    level: storeLevel,
   } = useUI()
 
   const [deckOpen, setDeckOpen] = useState(false)
   const [spectrum, setSpectrum] = useState<number[]>([])
-  const [level, setLevel] = useState(0)
   const [progress, setProgress] = useState(0)
   const [flying, setFlying] = useState(false)
   const cradleRef = useRef<HTMLDivElement>(null)
@@ -353,7 +356,8 @@ export function JukeboxPage() {
       raf = requestAnimationFrame(loop)
       if (t - last < 80) return
       last = t
-      setLevel(phenomena.getLevel())
+      const lv = phenomena.getLevel()
+      setLevel(lv)
       setProgress(phenomena.progress)
       const d = phenomena.getFrequencyData()
       if (d) {
@@ -367,21 +371,17 @@ export function JukeboxPage() {
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [setLevel])
 
-  const play = useCallback(
-    async (openDeck = false) => {
-      if (!spec) return
-      await phenomena.init()
-      if (phenomena.getSpec() !== spec) phenomena.load(spec)
-      mechanism.needle()
-      await phenomena.play(0)
-      setPlaying(true)
-      if (openDeck) setDeckOpen(true)
-      announce(`${dataset.short} is playing. ${spec.explain}`)
-    },
-    [spec, dataset, setPlaying, announce],
-  )
+  const play = useCallback(async () => {
+    if (!spec) return
+    await phenomena.init()
+    if (phenomena.getSpec() !== spec) phenomena.load(spec)
+    mechanism.needle()
+    await phenomena.play(0)
+    setPlaying(true)
+    announce(`${dataset.short} is playing. ${spec.explain}`)
+  }, [spec, dataset, setPlaying, announce])
 
   const togglePlay = useCallback(async () => {
     if (!powered) return
@@ -391,7 +391,7 @@ export function JukeboxPage() {
       announce('Needle lifted.')
       return
     }
-    await play(true)
+    await play()
   }, [powered, isPlaying, play, setPlaying, announce])
 
   const throwSwitch = useCallback(() => {
@@ -423,7 +423,7 @@ export function JukeboxPage() {
       }
       const prev = selectedId
       if (id === prev && !forceFly) {
-        if (autoPlay && !isPlaying) void play(true)
+        if (autoPlay && !isPlaying) void play()
         return
       }
       const from = discRefs.current[id]?.getBoundingClientRect()
@@ -464,6 +464,15 @@ export function JukeboxPage() {
   const chooseRef = useRef(chooseDisc)
   chooseRef.current = chooseDisc
 
+  const [seenIntro, setSeenIntro] = useState(started)
+
+  /** the cut scene finished: remember it, and hand the stage over */
+  const finishIntro = useCallback(() => {
+    setSeenIntro(true)
+    setStarted(true)
+    announce('The Earth Information Jukebox. Throw the brass switch to load a record.')
+  }, [setStarted, announce])
+
   if (datasetsQuery.isLoading) return <LoadingDoor />
 
   if (datasetsQuery.isError || !dataset) {
@@ -482,82 +491,150 @@ export function JukeboxPage() {
     )
   }
 
-  const crateItems = datasets
+  const scene = sceneFor(dataset.model, dataset.id)
+  const intro = !started && !seenIntro
 
   return (
-    <div className="px-2 pb-8 pt-1 sm:px-4">
-      {/* the placard: only until the switch is thrown */}
-      {!started && (
-        <div className="mx-auto mb-2 max-w-[1180px] px-1 text-center">
-          <p className="font-display text-[clamp(18px,3vw,34px)] font-semibold leading-tight text-ink drop-shadow-[0_1px_0_rgba(255,250,235,.8)]">
+    <div className={`relative ${started ? 'stage-arrive' : ''}`}>
+      {!started && seenIntro && (
+        <div className="fixed inset-0 z-[55] animate-[curtain-lift_.9s_ease-out_both]" aria-hidden>
+          <img src="/art/world-meadow.webp" alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+
+      {intro && <Intro onDone={finishIntro} />}
+
+      {/*
+        One stage, full screen. The cabinet is the subject and stands on the
+        painted world; the disc button sits on the left, the title above it, and
+        everything else waits below the fold.
+      */}
+      <section
+        aria-label="The jukebox"
+        className="stage-full relative flex w-full items-end justify-center overflow-hidden pb-[max(1vh,6px)]"
+      >
+        {/* the title column: never overlaps the cabinet */}
+        <div className="pointer-events-none absolute left-3 top-3 z-30 w-[clamp(206px,19vw,282px)] sm:left-5 sm:top-5">
+          <p className="font-display text-[9px] font-bold uppercase tracking-[0.22em] text-[#ffd79a] drop-shadow-[0_1px_6px_rgba(8,12,20,.95)]">
+            NASA Space Apps · 2026
+          </p>
+          <h1 className="mt-1 font-display text-[clamp(20px,2.2vw,30px)] font-semibold leading-[1.03] text-[#fff6de] drop-shadow-[0_2px_12px_rgba(8,12,20,.95)]">
             The Earth Information Jukebox
+          </h1>
+          <p className="mt-2 text-[11px] font-semibold leading-relaxed text-[#fff0d4] drop-shadow-[0_1px_7px_rgba(8,12,20,1)]">
+            Thirteen real NASA visualizations, each measured by a physical model and played as the
+            sound of the thing itself.
           </p>
-          <p className="mx-auto mt-1 max-w-[62ch] text-[12px] font-semibold leading-relaxed text-ink/70">
-            Thirteen real NASA visualizations, each read by a physical model and turned into the
-            sound of the thing itself — wind that gusts, fire that crackles, storms that thunder.
-            <span className="text-ink"> Throw the brass switch to begin.</span>
-          </p>
+          {!started ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#ffd79a73] bg-[#120e0899] px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-[0.13em] text-[#ffe9b8] backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ffd47a]" />
+              throw the brass switch on the cabinet
+            </p>
+          ) : (
+            <p className="mt-2 text-[10px] font-semibold leading-snug text-[#ffeccb] drop-shadow-[0_1px_6px_rgba(8,12,20,.95)]">
+              {scene.label} · {scene.weather}
+            </p>
+          )}
         </div>
-      )}
 
-      <Jukebox
-        datasets={datasets}
-        selectedId={selectedId}
-        powered={powered}
-        playing={isPlaying}
-        onPower={throwSwitch}
-        onPlay={() => void togglePlay()}
-        onStep={(dir) => {
-          const i = datasets.findIndex((d) => d.id === selectedId)
-          const next = datasets[(i + dir + datasets.length) % datasets.length]
-          if (next) void chooseDisc(next.id, true)
-        }}
-        level={level}
-        spectrum={spectrum}
-        progress={progress}
-        cradleRef={cradleRef}
-      />
+        <div className="relative z-10" style={{ width: 'min(84vw, 596px, calc((100svh - 146px) * 0.8539))' }}>
+          <Cabinet
+            datasets={datasets}
+            selectedId={selectedId}
+            powered={powered}
+            playing={isPlaying}
+            onPower={throwSwitch}
+            onPlay={() => void togglePlay()}
+            level={storeLevel}
+            spectrum={spectrum}
+            progress={progress}
+            cradleRef={cradleRef}
+          />
 
-      <DiscCrate
-        datasets={crateItems}
-        selectedId={selectedId}
-        onPick={(id) => void chooseDisc(id, true)}
-        discRefs={discRefs}
-      />
+          {/* the record label, tucked against the cabinet's left shoulder */}
+          <div className="glass-card pointer-events-auto absolute bottom-[24%] left-[calc(100%+16px)] z-30 hidden w-[clamp(188px,15vw,238px)] p-2.5 xl:block">
+            <p className="font-display text-[8px] font-bold uppercase tracking-[0.2em] text-[#8a5a1c]">
+              now playing
+            </p>
+            <p className="mt-0.5 font-display text-[14px] font-semibold leading-tight text-ink">
+              {dataset.short}
+            </p>
+            <p className="mt-0.5 line-clamp-3 text-[10px] font-semibold leading-snug text-[#3a2a18d9]">
+              {spec?.explain ?? dataset.description}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              <span className="rounded-full bg-[#3a2716d9] px-1.5 py-0.5 text-[7.5px] font-bold uppercase tracking-[0.14em] text-[#ffe9b8]">
+                {MODEL_WORD[dataset.model] ?? dataset.model}
+              </span>
+              {spec && (
+                <span className="font-mono text-[7.5px] font-bold text-[#7c6144]">
+                  {spec.layers.length} layers · {spec.duration.toFixed(0)}s
+                </span>
+              )}
+              {flying && <span className="text-[7.5px] font-bold text-[#a2641f]">disc in transit…</span>}
+            </div>
+          </div>
 
-      {/* a small honest status strip */}
-      <div className="mx-auto mt-2.5 flex max-w-[1180px] flex-wrap items-center justify-between gap-2 px-1 text-[10.5px] font-semibold text-ink-soft">
-        <span className="flex items-center gap-1.5">
-          <Waves size={12} />
-          {powered ? `${datasets.length} records · ${MODEL_WORD[dataset.model] ?? dataset.model} model armed` : 'cabinet off'}
-          {flying ? ' · disc in transit…' : ''}
-        </span>
-        <span>
-          {spec ? `${spec.layers.length} synthesis layers · ${spec.duration.toFixed(1)}s · grid ${spec.grid.cols}×${spec.grid.rows}` : 'measuring…'}
-        </span>
-      </div>
-
-      {!deckOpen && powered && (
-        <div className="mx-auto mt-2 flex max-w-[1180px] justify-center">
-          <button
-            onClick={() => setDeckOpen(true)}
-            className="tt-chip px-3.5 py-1.5 text-[11.5px] font-bold text-ink transition hover:bg-[#f6e3ba]"
-          >
-            open the measurement deck ↓
-          </button>
+          <Girl
+            pose={!started ? 'greet' : isPlaying ? 'listen' : 'point'}
+            weather={scene.rain ? 'rain' : scene.kind === 'storm' ? 'wind' : 'calm'}
+            level={storeLevel}
+            playing={isPlaying}
+          />
         </div>
-      )}
 
-      {deckOpen && (
-        <Deck
-          dataset={dataset}
-          spec={spec}
-          loading={specQuery.isLoading}
+        {/* the record crate: a disc that opens into the whole collection */}
+        <DiscSelector
           datasets={datasets}
-          onClose={() => setDeckOpen(false)}
+          selectedId={selectedId}
+          playing={isPlaying}
+          powered={powered}
           onPick={(id) => void chooseDisc(id, true)}
+          discRefs={discRefs}
         />
-      )}
+
+        {/* the prompt to scroll, in the right margin where nothing else lives */}
+        <a
+          href="#now-playing"
+          className="pointer-events-auto absolute bottom-[9%] right-4 z-30 hidden whitespace-nowrap rounded-full border border-[#ffe9b86b] bg-[#120e08cc] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffe9b8] backdrop-blur-sm transition hover:bg-[#120e08] lg:block"
+        >
+          the frame &amp; the analysis
+          <ChevronDown size={11} className="ml-1 inline animate-bounce" />
+        </a>
+      </section>
+
+      {/* everything below the fold: the real frame, the measurements, the series */}
+      <NowPlaying
+        dataset={dataset}
+        spec={spec}
+        loading={specQuery.isLoading}
+        playing={isPlaying}
+        onToggle={() => void togglePlay()}
+        onPick={(id) => void chooseDisc(id, true)}
+        datasets={datasets}
+      />
+
+      {/* the deck: the full measurement sheet, over the world */}
+      <div
+        className={`fixed inset-x-0 bottom-0 z-40 overflow-y-auto transition-transform duration-500 ${
+          deckOpen ? 'translate-y-0' : 'pointer-events-none translate-y-full'
+        }`}
+        style={{ maxHeight: '82svh' }}
+        aria-hidden={!deckOpen}
+      >
+        {deckOpen && (
+          <div className="mx-auto w-full max-w-[1180px] px-2 pb-2">
+            <Deck
+              dataset={dataset}
+              spec={spec}
+              loading={specQuery.isLoading}
+              datasets={datasets}
+              onClose={() => setDeckOpen(false)}
+              onPick={(id) => void chooseDisc(id, true)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

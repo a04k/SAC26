@@ -48,7 +48,7 @@ export function FrameScanner({
 
   return (
     <div className="overflow-hidden rounded-[18px] border-2 border-[#d8b077] bg-[#3a2716] shadow-[0_10px_24px_-16px_rgba(60,38,12,.9)]">
-      <div className="flex flex-wrap items-center justify-between gap-1 border-b border-[#d8b077]/50 px-2 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-1 border-b border-[#d8b07780] px-2 py-1.5">
         <span className="font-display text-[9.5px] font-bold uppercase tracking-[0.14em] text-[#ffe9b8]">
           measured {cols}×{rows} = {cols * rows} cells
         </span>
@@ -60,7 +60,7 @@ export function FrameScanner({
               aria-label={m === 'signal' ? `Show the measured ${signal.label} per cell` : 'Show the live level per cell'}
               aria-pressed={mode === m}
               className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition ${
-                mode === m ? 'bg-[#ffe1a1] text-[#4a3521]' : 'text-[#ffe9b8]/60 hover:text-[#ffe9b8]'
+                mode === m ? 'bg-[#ffe1a1] text-[#4a3521]' : 'text-[#ffe9b899] hover:text-[#ffe9b8]'
               }`}
             >
               {m === 'signal' ? signal.label : 'live level'}
@@ -92,7 +92,7 @@ export function FrameScanner({
                 onFocus={() => setHover(c)}
                 onBlur={() => setHover(null)}
                 aria-label={`Cell ${c.row + 1},${c.col + 1}: ${signal.label} ${value.toFixed(2)}, brightness ${c.brightness.toFixed(2)}`}
-                className="relative border border-[#fff6dc]/15 outline-none transition focus-visible:ring-2 focus-visible:ring-[#ffe1a1]"
+                className="relative border border-[#fff6dc26] outline-none transition focus-visible:ring-2 focus-visible:ring-[#ffe1a1]"
                 style={{
                   background: `radial-gradient(circle at 50% 50%, rgba(255,${196 - value * 80},${
                     70 + value * 70
@@ -110,7 +110,7 @@ export function FrameScanner({
         </div>
 
         {hover && (
-          <div className="pointer-events-none absolute bottom-1 left-1 rounded-lg border border-[#d8b077]/60 bg-[#2b1d0f]/90 px-1.5 py-1 font-mono text-[8.5px] leading-relaxed text-[#ffe9b8] backdrop-blur">
+          <div className="pointer-events-none absolute bottom-1 left-1 rounded-lg border border-[#d8b07799] bg-[#2b1d0fe6] px-1.5 py-1 font-mono text-[8.5px] leading-relaxed text-[#ffe9b8] backdrop-blur">
             <div>
               cell {hover.row + 1},{hover.col + 1}
             </div>

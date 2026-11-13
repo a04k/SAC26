@@ -30,7 +30,8 @@ export interface AnalyzeResponse {
   explain: string
   duration: number
   layers: import('./audio/phenomena').SpecLayer[]
-  mapping: Record<string, string>
+  /** one line: what the frame measures → what the ear hears */
+  mapping: string
   grid: { cols: number; rows: number; cells: import('./audio/phenomena').SpecCell[] }
   frame_stats: Record<string, number>
 }

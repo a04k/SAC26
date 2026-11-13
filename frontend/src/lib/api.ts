@@ -26,6 +26,9 @@ export const api = {
 
   renderUrl: (id: string) => `${BASE}/api/datasets/${id}/render.wav`,
 
+  /** The offline render of the same physical spec — same sound as the stream. */
+  renderWavUrl: (id: string) => `${BASE}/api/datasets/${id}/render.wav`,
+
   analyze: async (file: File, model: string) => {
     const form = new FormData()
     form.append('file', file)

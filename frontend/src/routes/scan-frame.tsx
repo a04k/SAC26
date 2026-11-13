@@ -115,7 +115,7 @@ export function ScanPage() {
           measure · map · synthesise
         </p>
         <h1 className="mt-0.5 font-display text-2xl font-semibold text-ink sm:text-3xl">Read any frame</h1>
-        <p className="mt-1.5 max-w-2xl text-[12px] font-semibold leading-relaxed text-ink/75">
+        <p className="mt-1.5 max-w-2xl text-[12px] font-semibold leading-relaxed text-[#3a2a18bf]">
           Drop in a NASA frame — or any image — and choose which physical process should read it.
           The model changes the synthesis, never the measurement: the same pixels can be heard as
           wind, fire or water, and every mapping is printed underneath.
@@ -143,14 +143,14 @@ export function ScanPage() {
                 if (f) void runFile(f)
               }}
             />
-            <Upload size={18} className="text-ink-soft/70" />
+            <Upload size={18} className="text-[#7c6144b2]" />
             <button
               onClick={() => inputRef.current?.click()}
               className="rounded-full border-2 border-[#a9773d] bg-gradient-to-b from-[#ffe9b8] to-[#e0a95f] px-3.5 py-1.5 text-[11.5px] font-bold text-ink shadow-[0_2px_0_#a9773d] transition active:translate-y-[1px] active:shadow-none"
             >
               choose a frame
             </button>
-            <p className="font-display text-[9px] font-bold uppercase tracking-wider text-ink-soft/70">
+            <p className="font-display text-[9px] font-bold uppercase tracking-wider text-[#7c6144b2]">
               png · jpg · webp · drag or drop
             </p>
             {busy && (
@@ -173,8 +173,8 @@ export function ScanPage() {
                   aria-pressed={model === key}
                   className={`rounded-lg px-2 py-1 text-left transition ${
                     model === key
-                      ? 'bg-[#e8b96f]/45 ring-2 ring-[#a9773d]'
-                      : 'bg-[#fff8e8]/60 hover:bg-[#fff8e8]'
+                      ? 'bg-[#e8b96f73] ring-2 ring-[#a9773d]'
+                      : 'bg-[#fff8e899] hover:bg-[#fff8e8]'
                   }`}
                 >
                   <span className="block text-[10.5px] font-bold text-ink">{label}</span>
@@ -216,7 +216,7 @@ export function ScanPage() {
           {!result && (
             <div className="tt-paper flex h-full min-h-48 flex-col items-center justify-center gap-1.5 p-5 text-center">
               <p className="font-display text-[13px] font-semibold text-ink-soft">Measurements appear here</p>
-              <p className="max-w-xs text-[10.5px] font-semibold leading-relaxed text-ink-soft/80">
+              <p className="max-w-xs text-[10.5px] font-semibold leading-relaxed text-[#7c6144cc]">
                 A 6 × 12 grid of cells, each carrying brightness, saturation, hue, texture,
                 gradient, and the colour fractions (hot / green / water / white / dark) that the
                 phenomenon models read.
@@ -251,25 +251,25 @@ export function ScanPage() {
                     {playing ? 'Pause' : 'Play'}
                   </button>
                 </div>
-                <p className="mt-1.5 text-[10.5px] font-semibold leading-relaxed text-ink/80">{result.explain}</p>
+                <p className="mt-1.5 text-[10.5px] font-semibold leading-relaxed text-[#3a2a18cc]">{result.explain}</p>
               </div>
 
-              <div className="h-20 rounded-[16px] border-2 border-[#d8b077] bg-[#3a2716] p-1.5">
+              <div className="relative h-20 rounded-[16px] border-2 border-[#d8b077] bg-[#3a2716] p-1.5">
                 <Spectrum accent="#ffcf7d" />
+                {!playing && (
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center font-display text-[9px] font-bold uppercase tracking-[0.2em] text-[#ffe9b866]">
+                    press play to hear this frame
+                  </span>
+                )}
               </div>
 
               <div className="tt-paper p-2.5">
                 <p className="mb-1.5 font-display text-[9.5px] font-bold uppercase tracking-[0.18em] text-ink-soft">
                   mapping
                 </p>
-                <dl className="flex flex-col gap-1">
-                  {Object.entries(result.mapping).map(([k, v]) => (
-                    <div key={k} className="flex items-baseline gap-1.5 text-[10px]">
-                      <dt className="w-[40%] shrink-0 font-bold text-[#8a5a1c]">{k}</dt>
-                      <dd className="text-ink/80">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
+                <p className="text-[10px] font-semibold leading-snug text-[#3a2a18cc]">
+                  {result.mapping}
+                </p>
               </div>
             </>
           )}

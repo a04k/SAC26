@@ -18,6 +18,8 @@ interface UIState {
   reduceMotion: boolean
   mechanismMuted: boolean
   announcement: string
+  /** live analyser level, published so the world can react to the sound */
+  level: number
 
   setStarted: (v: boolean) => void
   setPowered: (v: boolean) => void
@@ -28,6 +30,7 @@ interface UIState {
   setHighContrast: (v: boolean) => void
   setReduceMotion: (v: boolean) => void
   setMechanismMuted: (v: boolean) => void
+  setLevel: (v: number) => void
   announce: (msg: string) => void
 }
 
@@ -42,6 +45,7 @@ export const useUI = create<UIState>((set) => ({
   reduceMotion: false,
   mechanismMuted: false,
   announcement: '',
+  level: 0,
 
   setStarted: (v) => set({ started: v }),
   setPowered: (v) => set({ powered: v, ...(v ? {} : { isPlaying: false }) }),
@@ -52,5 +56,6 @@ export const useUI = create<UIState>((set) => ({
   setHighContrast: (v) => set({ highContrast: v }),
   setReduceMotion: (v) => set({ reduceMotion: v }),
   setMechanismMuted: (v) => set({ mechanismMuted: v }),
+  setLevel: (v) => set({ level: v }),
   announce: (msg) => set({ announcement: msg }),
 }))

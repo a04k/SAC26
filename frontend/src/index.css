@@ -18,7 +18,7 @@
 
 :root {
   color-scheme: light;
-  --ink: #4a3521;
+  --ink: #3a2a18;
   --paper: #fdf3dd;
 }
 
@@ -34,7 +34,7 @@ body,
 
 body {
   margin: 0;
-  background: #bfe0d2;
+  background: #aac9c6;
   color: var(--ink);
   font-family: var(--font-sans);
   font-synthesis: none;

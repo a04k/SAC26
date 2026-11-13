@@ -6,41 +6,41 @@ const METHOD = [
   {
     n: '01',
     title: 'One real frame per record',
-    body: 'Every record is a bundled frame from the published NASA visualization named on its sleeve — Black Marble, ECCO2, MERRA-2, GPM IMERG, Hubble. Nothing is stock, generated, or redrawn. The only picture the app adds is a CSS-drawn disc and a CSS-drawn glow.',
+    body: 'Every record is a bundled frame from the published NASA visualization named on its sleeve — Black Marble, ECCO2, GEOS, GPM IMERG, Caldwell 73. Nothing on the jukebox, the disc labels or the analysis view is stock or redrawn. The painted backdrops behind the cabinet are illustration, and are credited as such; the data frames are never generated.',
   },
   {
     n: '02',
     title: 'Measure, don’t interpret',
-    body: 'Python + OpenCV divides the frame into a 6 × 12 grid and measures each cell: brightness, saturation, hue, Laplacian texture energy, gradient magnitude, and the fraction of hot / green / water / white / dark pixels. No hand-authored melody exists anywhere in the code.',
+    body: 'Python + OpenCV divides the frame into a 6 × 12 grid and measures every cell: brightness, saturation, hue, Laplacian texture energy, gradient magnitude, and the fraction of hot / green / water / white / dark pixels. Each cell also gets a relative brightness against the frame’s own bright end, so a starfield is not silent just because space is black.',
   },
   {
     n: '03',
-    title: 'Give each phenomenon its own physics',
-    body: 'A single “brightness → pitch” mapping was the first version, and it was wrong: it made wind sound like a music box. Each record now selects a physical model whose synthesis rules match the process — see below. The spec is declarative, so the browser and the offline renderer produce the same sound.',
+    title: 'Give each phenomenon its own physical model',
+    body: 'There is no shared oscillator bank. Each record runs a different mechanism: turbulence for air, an impact train of individual droplets for rain, damped modal resonators for fire and canopy, swelling bands for water, and Caldwell’s own scan for the space frame. The spec is declarative, so the browser and the offline renderer run the same rules.',
   },
   {
     n: '04',
     title: 'Let the ear check the physics',
-    body: 'Masking and stream segregation are the failure modes of any parameter-mapped sonification, so redundant mappings are used (wind speed changes both the filter centre and the gust level), pitch stays in the 400–1400 Hz band where equal-loudness contours favour long listening, and loudness is never the only carrier of a value.',
+    body: 'Masking and stream segregation are the failure modes of parameter-mapped sonification, so redundant mappings are used (gust speed moves both the band centre and the gust level), it stays in the frequency range the ear is most sensitive to over long listening, loudness is never the only carrier of a value, and every impact keeps its own stereo position.',
   },
 ]
 
 const MODELS: [string, string, string][] = [
-  ['Wind', 'band-passed noise', 'Air moving past a listener is broadband turbulence shaped by resonances. Centre frequency follows measured turbulence, Q follows gustiness — the standard approach in weather and solar-wind sonification.'],
-  ['Storm', 'rain noise + thunder + flashes', 'Dense filtered noise at 1–6 kHz for rain, a low burst with a long decay for thunder, short bright transients for lightning. Cloud brightness sets rain density; texture sharpness sets the strike rate.'],
-  ['Fire', 'combustion crackle over a roar', 'Combustion is stochastic impulses at 1–8 kHz over a 20–200 Hz roar. The hot-pixel fraction sets the pop rate, the dark fraction sets the roar.'],
-  ['Ocean', 'resonant surges', 'Very low noise bands whose amplitude breathes with the swell, plus a gated whoosh from foam brightness.'],
-  ['City lights', 'discrete twinkles', 'Short sine glints whose rate follows light density and whose pitch stays inside the 400–1400 Hz band.'],
-  ['Canopy', 'damped resonant pings', 'Forest height sets ping rate and pitch, so the oldest, tallest stands ring lowest.'],
-  ['Plume', 'airy transport + sparkles', 'Band-passed beds for air movement with a sparkle layer from the brightest, sharpest pixels.'],
-  ['Deep space', 'NASA’s own scan', 'For Caldwell 73 the challenge’s reference method is reproduced: position becomes time along the axis, brightness becomes pitch.'],
+  ['Wind', 'turbulence + gust envelope', 'Air moving past a listener is broadband turbulence shaped by the space around it. A von-Karman-ish gust envelope drives a glottal-style turbulence generator through a moving band-pass, so each row of the frame becomes one gust: its speed sets the band the wind howls in, its texture sets how hard it hits, and a thin whistle appears in the strongest row.'],
+  ['Storm', 'individual raindrops + thunder', 'Rain is not a hiss. It is thousands of separate drops striking leaves and water, each a short resonance of 0.6–5 kHz decaying in about 12 ms. Bright cloud makes more of them, texture shifts their pitch, and thick dark cloud adds thunder: a bright crack with a rumble whose decay follows the cloud’s mass.'],
+  ['Fire', 'combustion crackle over a roar', 'Crackle is thousands of tiny implosions of sap and air — Poisson impulses through a damped resonator bank 1–8 kHz — over a low roar whose cutoff follows the flame area, plus a slow breath from the smoke plume. The hot-pixel fraction sets the crackle rate.'],
+  ['Ocean', 'swell, foam and water mass', 'A sub-bass bed for the mass of the sea, band-passed swells whose period comes from the measured gradient of the surf line, and brief bright hisses where the foam breaks.'],
+  ['City lights', 'discrete glints', 'Light is discrete, so each bright cell emits a damped glint. Pitch stays in the 420–1380 Hz band where the ear is most sensitive, and the panning follows the map.'],
+  ['Canopy', 'modal pings', 'A forest canopy is a resonant structure: each dense green cell is struck and rings at a pitch set by how textured it is, with three partials at independent decays.'],
+  ['Plume', 'transport beds + sparkle', 'A deep bed for the mass being carried, a moving band for the transport, and brief sparkles where the edge of the cloud is sharpest against the dark.'],
+  ['Deep space', 'Caldwell’s own scan', 'For Caldwell 73 the challenge’s reference method is reproduced: left to right is time along the scan axis, brightness is pitch, and vertical position is where the sound sits in the stereo image.'],
 ]
 
 export function AboutPage() {
   const { data } = useQuery({ queryKey: ['datasets'], queryFn: api.datasets })
 
   return (
-    <div className="mx-auto max-w-[1100px] px-3 pb-10 pt-2 sm:px-5">
+    <div className="mx-auto max-w-[1100px] px-3 pb-12 pt-2 sm:px-5">
       <header className="tt-paper mb-3 p-4 sm:p-6">
         <p className="font-display text-[10px] font-bold uppercase tracking-[0.24em] text-ink-soft">
           NASA Space Apps Challenge 2026 · The Earth Information Jukebox
@@ -48,7 +48,7 @@ export function AboutPage() {
         <h1 className="mt-1 font-display text-3xl font-semibold leading-tight text-ink sm:text-4xl">
           A jukebox that plays the Earth
         </h1>
-        <p className="mt-2 max-w-[68ch] text-[13px] font-semibold leading-relaxed text-ink/80">
+        <p className="mt-2 max-w-[68ch] text-[13px] font-semibold leading-relaxed text-[#3a2a18cc]">
           Thirteen records. Each one is a real NASA visualization, measured cell by cell with
           OpenCV, and played back through a physical model of the process it shows — so wind sounds
           like moving air, fire crackles, and a hurricane arrives with rain and thunder. The cabinet
@@ -61,14 +61,14 @@ export function AboutPage() {
           <article key={m.n} className="tt-paper p-3.5">
             <p className="font-mono text-[10px] font-bold tracking-[0.2em] text-[#a2641f]">{m.n}</p>
             <h2 className="mt-0.5 font-display text-[17px] font-semibold text-ink">{m.title}</h2>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-ink/80">{m.body}</p>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-[#3a2a18cc]">{m.body}</p>
           </article>
         ))}
       </section>
 
       <section className="tt-paper mt-3 p-3.5 sm:p-5">
         <h2 className="font-display text-xl font-semibold text-ink">Eight physical models</h2>
-        <p className="mt-1 max-w-[70ch] text-[11.5px] leading-relaxed text-ink/75">
+        <p className="mt-1 max-w-[70ch] text-[11.5px] leading-relaxed text-[#3a2a18bf]">
           Grounded in the Sonification Handbook (parameter mapping, masking, loudness/pitch
           interaction), NASA&apos;s and the University of Michigan&apos;s solar-wind sonifications, the York
           weather-station pieces, <em>Atmospherics/Weather Works</em>, and Newstadt&apos;s{' '}
@@ -87,13 +87,13 @@ export function AboutPage() {
             <tbody>
               {MODELS.map(([name, synth, why]) => (
                 <tr key={name} className="align-top">
-                  <td className="w-[14%] rounded-l-lg bg-[#fff8e8]/80 px-2 py-1.5 font-display text-[11.5px] font-bold text-ink">
+                  <td className="w-[14%] rounded-l-lg bg-[#fff8e8cc] px-2 py-1.5 font-display text-[11.5px] font-bold text-ink">
                     {name}
                   </td>
-                  <td className="w-[20%] bg-[#fff8e8]/80 px-2 py-1.5 text-[10.5px] font-semibold text-[#8a5a1c]">
+                  <td className="w-[20%] bg-[#fff8e8cc] px-2 py-1.5 text-[10.5px] font-semibold text-[#8a5a1c]">
                     {synth}
                   </td>
-                  <td className="rounded-r-lg bg-[#fff8e8]/80 px-2 py-1.5 text-[10.5px] leading-relaxed text-ink/80">
+                  <td className="rounded-r-lg bg-[#fff8e8cc] px-2 py-1.5 text-[10.5px] leading-relaxed text-[#3a2a18cc]">
                     {why}
                   </td>
                 </tr>
@@ -111,7 +111,7 @@ export function AboutPage() {
         </p>
         <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
           {(data ?? []).map((d) => (
-            <li key={d.id} className="flex items-start gap-2 rounded-xl border-2 border-[#e2c290]/80 bg-[#fff8e8]/70 p-1.5">
+            <li key={d.id} className="flex items-start gap-2 rounded-xl border-2 border-[#e2c290cc] bg-[#fff8e8b2] p-1.5">
               <img
                 src={api.frameUrl(d.id)}
                 alt=""
@@ -140,7 +140,7 @@ export function AboutPage() {
 
       <section className="tt-paper mt-3 p-3.5 sm:p-5">
         <h2 className="font-display text-xl font-semibold text-ink">Under the hood</h2>
-        <ul className="mt-1.5 grid gap-1 text-[11.5px] text-ink/80 sm:grid-cols-2">
+        <ul className="mt-1.5 grid gap-1 text-[11.5px] text-[#3a2a18cc] sm:grid-cols-2">
           <li>
             <strong className="text-ink">Measurement</strong> — Python, OpenCV, NumPy; HSV, Laplacian,
             Sobel, colour-fraction masks over a 6 × 12 grid

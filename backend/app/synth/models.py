@@ -1,41 +1,37 @@
-"""The phenomenon models: measurement -> sound, per physical process.
+"""The phenomenon engine: physical sound models, driven by measurement.
 
-Each builder receives the shared measurement grid (`app/analysis.py`) and
-returns a **spec**: a description of the sound to be synthesised, either by the
-browser's WebAudio engine or by `render.py`. The spec contains no notes, no
-scales and no beat grid — only physically-motivated layers:
+This replaces the old "one noise bed per measurement cell" approach. Nothing
+here is a loop, a chord, a scale or a beat. Each phenomenon is a *physical
+model* — a stochastic excitation passed through a resonator or an envelope
+that stands for the real mechanism — and the measurement grid only supplies the
+parameters of that mechanism (how fast, how hard, how bright, how far).
 
-  * `noise`  — filtered noise beds (air, water, rain, rumble)
-  * `tone`   — sine partials (star scans, resonant pings, glints)
-  * `burst`  — short stochastic transients (fire crackle, thunder, droplets)
+  Wind     Turbulence. A von-Karman-ish gust envelope (two-pole low-passed
+           noise, cubed) drives a glottal-like turbulence generator, shaped by
+           a moving band-pass (the "hiss"), plus a low body resonance for the
+           pressure on the ears. Gust speed -> band centre; gust onset ->
+           amplitude; hue -> how much of the energy is in the top octave.
+  Storm    Rain is *impacts*, not noise: thousands of short resonant clicks
+           (drop-on-leaf resonances, 0.6–5 kHz, ~12 ms), whose density and
+           pitch follow the measured cloud brightness and texture. Thunder is a
+           filtered noise burst with a crack (fast attack) and a long rumbling
+           tail whose decay follows the cloud's low-frequency weight.
+  Fire     Combustion: crackle = Poisson impulses shaped by a damped resonator
+           bank (1–8 kHz, micro-decays), roar = low-passed noise whose cutoff
+           follows the flame area, and a slow "breath" from the smoke plume.
+  Ocean    Swell: band-passed noise with a slow amplitude envelope whose period
+           is the measured gradient (the surf line), plus foam hiss on the
+           crest, and a sub-bass bed for the water mass.
+  City     Discrete sodium/LED glints: damped sines in the equal-loudness sweet
+           spot, rate from light density, pitch from brightness, pan from x.
+  Canopy   Resonant pings: modal resonators (three partials) struck at a rate
+           set by canopy height and texture.
+  Plume    Airy transport: a high band-passed bed plus a slow sub-bass swell;
+           sparkle from the sharpest, brightest pixels.
+  Space    Caldwell's own mapping: scan position is the x axis, brightness is
+           pitch, plus the scan's characteristic soft gating.
 
-Design notes and where they come from
--------------------------------------
-Wind          air moving past a listener is broadband turbulence shaped by
-              resonances; the standard sonification-of-wind approach is
-              band-pass filtered noise whose centre frequency follows speed
-              (cf. Alexander's solar-wind sonification, and the York weather
-              station mapping where wind speed sets a low-pass cutoff and gusts
-              set amplitude). We use centre frequency + Q from turbulence.
-Storm         rain is dense filtered noise at 1–6 kHz; thunder is a low
-              frequency burst with a long decay; lightning flashes are short
-              bright transients. All three are driven by cloud brightness and
-              the sharpness of the cloud texture.
-Fire          combustion is crackle (stochastic impulses at 1–8 kHz) over a low
-              roar (20–200 Hz noise); the amount of orange/yellow pixels sets
-              crackle rate and roar level.
-Ocean         water surges: very low noise bands whose amplitude breathes with
-              the swell, plus a gated whoosh from foam brightness.
-City          discrete twinkles (short sine glints) whose rate follows light
-              density and whose pitch stays inside the 400–1400 Hz band that
-              equal-loudness contours favour for long listening.
-Canopy        resonant pings (damped sines at 200–900 Hz) whose rate and pitch
-              follow canopy height.
-Plume         airy band-passed beds for transport, with a sparkle layer from
-              the brightest, sharpest pixels.
-Space         NASA's own method (Caldwell 73): position is the scan axis and
-              brightness is pitch — reproduced here so the reference dataset
-              sounds like its published sonification rather than like ours.
+Every model is deterministic given the frame (seeded from the measurement).
 """
 
 from __future__ import annotations
@@ -44,61 +40,105 @@ import math
 
 import numpy as np
 
-from ..analysis import measure_grid, region
+from ..analysis import measure_grid
+
+SR = 44100
+
+LAYER_NOISE = "noise"
+LAYER_RES = "res"        # damped resonator ping(s)
+LAYER_HIT = "hit"        # short resonant click (rain drop, crackle, ping)
+LAYER_SWELL = "swell"    # slow-envelope noise bed
+LAYER_TONE = "tone"      # sine (used by the space scan)
 
 
-def _pan(cx: float, width: float = 0.85) -> float:
-    return round((cx - 0.5) * 2 * width, 3)
+# ---------------------------------------------------------------- utilities
+
+
+def _pan(cx: float, width: float = 0.8) -> float:
+    return round(float(np.clip((cx - 0.5) * 2 * width, -1, 1)), 3)
 
 
 def _lerp(a: float, b: float, t: float) -> float:
-    return a + (b - a) * float(np.clip(t, 0.0, 1.0))
+    return float(a + (b - a) * float(np.clip(t, 0.0, 1.0)))
+
+
+def _cells(grid: dict):
+    return grid["cells"]
+
+
+def _rng(seed: int) -> np.random.Generator:
+    return np.random.default_rng(seed)
 
 
 # --------------------------------------------------------------------- wind
 
 
 def build_wind(grid: dict) -> dict:
-    layers = []
-    for c in grid["cells"]:
-        if c["brightness"] < 0.03 and c["turbulence"] < 0.03:
-            layers.append({"kind": "noise", "t0": c["row"] * 0.3, "dur": 0.3, "gain": 0.0,
-                           "filter": "bandpass", "freq": 600, "q": 1.2, "pan": _pan(c["cx"])})
+    """Turbulence driven by gust speed; the band centre is the gust velocity."""
+    layers: list[dict] = []
+    rng = _rng(11)
+    # one long gust bed per row band, not a lawn of tiny cells: a gust is a
+    # continuous object, and chopping it per-cell is what made it sound like
+    # stepping noise.
+    rows = grid["rows"]
+    cols = grid["cols"]
+    for r in range(rows):
+        row_cells = [c for c in _cells(grid) if c["row"] == r]
+        if not row_cells:
             continue
-        speed = 0.55 * c["brightness"] + 0.45 * c["turbulence"]
+        speed = float(np.mean([0.55 * c["brightness"] + 0.45 * c["turbulence"] for c in row_cells]))
+        bright = float(np.mean([c["brightness"] for c in row_cells]))
+        t0 = r * (grid["duration"] / rows)
+        dur = grid["duration"] / rows
+        # the gust: turbulence envelope, slow attack, long body
         layers.append(
             {
-                "kind": "noise",
-                "t0": round(c["row"] * 0.3, 3),
-                "dur": 0.34,
-                "gain": round(0.02 + 0.20 * speed, 4),
-                "filter": "bandpass",
-                # airflow resonance: stronger wind -> brighter, narrower band
-                "freq": round(_lerp(280, 2400, speed), 1),
-                "q": round(_lerp(0.7, 3.4, c["turbulence"]), 2),
-                "pan": _pan(c["cx"]),
+                "kind": LAYER_NOISE,
+                "model": "turbulence",
+                "t0": round(t0, 3),
+                "dur": round(dur, 3),
+                "gain": round(0.30 + 0.55 * speed, 3),
+                "freq": round(_lerp(320, 2600, speed), 1),
+                "q": round(_lerp(0.8, 2.6, 0.5 + 0.5 * bright), 2),
+                "gust": round(_lerp(0.5, 2.4, speed), 2),
+                "pan": _pan(float(np.mean([c["cx"] for c in row_cells]))),
             }
         )
-    # a continuous low bed so the piece has air even in still areas
-    layers.append({"kind": "noise", "t0": 0, "dur": 30, "gain": 0.05,
-                   "filter": "lowpass", "freq": 320, "q": 0.6, "pan": 0.0})
+    # a low pressure bed under everything, and a whistle in the strongest row
+    strongest = max(_cells(grid), key=lambda c: c["turbulence"] + c["brightness"])
+    layers.append(
+        {
+            "kind": LAYER_NOISE,
+            "model": "body",
+            "t0": 0.0,
+            "dur": grid["duration"],
+            "gain": 0.26,
+            "freq": round(_lerp(90, 240, float(np.mean([c["turbulence"] for c in _cells(grid)]))), 1),
+            "q": 0.7,
+            "pan": 0.0,
+        }
+    )
+    layers.append(
+        {
+            "kind": LAYER_RES,
+            "model": "whistle",
+            "t0": round(strongest["row"] * (grid["duration"] / rows), 3),
+            "dur": round(grid["duration"] / rows, 3),
+            "gain": round(0.06 + 0.10 * strongest["turbulence"], 3),
+            "freq": round(_lerp(620, 1500, strongest["turbulence"]), 1),
+            "decay": 0.9,
+            "pan": _pan(strongest["cx"]),
+        }
+    )
     return {
         "model": "wind",
-        "title": "Filtered-noise airflow",
-        "duration": 30,
-        "layers": layers,
-        "mapping": {
-            "band centre frequency": "wind speed = brightness, texture",
-            "band Q": "gustiness = texture energy",
-            "gain": "wind speed",
-            "pan": "horizontal position in the frame",
-        },
+        "mapping": "gust velocity → band centre · gust onset → amplitude · hue → top-octave energy",
         "explain": (
-            "Air moving past you is broadband turbulence: it carries every frequency, and the "
-            "resonances it passes through decide what you hear. Each cell of the frame becomes a "
-            "noise band; its centre frequency rises and its resonance sharpens as the measured "
-            "wind proxy (brightness and texture) increases. Pans follow the cell's position."
+            "Air has no pitch of its own: what you hear is turbulence filtered by the "
+            "space around it. Each row of the frame becomes one gust, its speed setting "
+            "the band the wind howls in, its texture setting how hard it hits."
         ),
+        "layers": layers,
     }
 
 
@@ -106,72 +146,92 @@ def build_wind(grid: dict) -> dict:
 
 
 def build_storm(grid: dict) -> dict:
-    src = region(grid, 0, grid["rows"])
-    busiest = max(grid["cells"], key=lambda c: c["white"] * (0.5 + c["turbulence"]))
-    layers = [
-        # rain: dense high noise
-        {
-            "kind": "noise", "t0": 0, "dur": 34,
-            "gain": round(0.03 + 0.16 * src.get("white", 0.2), 4),
-            "filter": "highpass", "freq": round(_lerp(1200, 4800, src.get("white", 0.2)), 1),
-            "q": 0.7, "pan": 0.0,
-        },
-        # low wind bed around the storm
-        {
-            "kind": "noise", "t0": 0, "dur": 34,
-            "gain": round(0.04 + 0.12 * src.get("turbulence", 0.2), 4),
-            "filter": "lowpass", "freq": round(_lerp(180, 700, src.get("turbulence", 0.2)), 1),
-            "q": 1.1, "pan": 0.0,
-        },
-    ]
-    # thunder bursts where cloud is thick and textured
-    rng = np.random.default_rng(11)
-    for i in range(9):
-        c = busiest if i == 0 else grid["cells"][int(rng.integers(0, len(grid["cells"])))]
-        weight = 0.5 * c["white"] + 0.5 * c["turbulence"]
+    """Rain as thousands of droplet impacts; thunder as a crack plus a rumble."""
+    layers: list[dict] = []
+    rng = _rng(23)
+    dur = grid["duration"]
+    # --- rain: a Poisson train of resonant impacts -------------------------
+    total = 0
+    drops: list[dict] = []
+    for c in _cells(grid):
+        cloud = max(c["white"], 0.7 * c["rel"] if c["rel"] > 0.5 else 0.0)
+        if cloud < 0.16:
+            continue
+        # dense cloud -> dense rain
+        n = int(_lerp(3, 26, cloud))
+        for _ in range(n):
+            t = c["row"] * (dur / grid["rows"]) + rng.uniform(0, dur / grid["rows"])
+            drops.append(
+                {
+                    "t": round(float(t), 4),
+                    "f": round(float(rng.uniform(700, 5200) * _lerp(0.7, 1.3, c["turbulence"])), 1),
+                    "g": round(float(0.20 + 0.55 * rng.random() * cloud), 3),
+                    "p": _pan(c["cx"] + rng.uniform(-0.1, 0.1)),
+                    "d": round(float(rng.uniform(0.008, 0.020)), 4),
+                }
+            )
+            total += 1
+    drops.sort(key=lambda d: d["t"])
+    # chunk into layers so the spec stays a manageable document
+    chunk = max(1, total // 24) if total else 1
+    for i in range(0, len(drops), chunk):
         layers.append(
             {
-                "kind": "burst",
-                "t0": round(2.0 + i * 3.1 + rng.uniform(-0.6, 0.6), 3),
-                "dur": 1.6,
-                "gain": round(0.08 + 0.3 * weight, 4),
-                "burst": "thunder",
-                "freq": round(_lerp(48, 120, weight), 1),
-                "pan": _pan(c["cx"], 0.6),
+                "kind": LAYER_HIT,
+                "model": "droplet",
+                "t0": drops[i]["t"],
+                "dur": 0.06,
+                "gain": 0.5,
+                "drops": drops[i : i + chunk],
             }
         )
-    # lightning clicks at the sharpest highlights
-    for c in sorted(grid["cells"], key=lambda c: -(c["white"] * c["gradient"]))[:10]:
+
+    # --- the cloud's mass: a wet low bed --------------------------------
+    mass = float(np.mean([c["dark"] + c["white"] * 0.4 for c in _cells(grid)]))
+    layers.append(
+        {
+            "kind": LAYER_NOISE,
+            "model": "body",
+            "t0": 0.0,
+            "dur": dur,
+            "gain": round(0.20 + 0.30 * mass, 3),
+            "freq": 150,
+            "q": 0.6,
+            "pan": 0.0,
+        }
+    )
+
+    # --- thunder: for each of the darkest, most textured rows ------------
+    rows = grid["rows"]
+    for r in range(rows):
+        row = [c for c in _cells(grid) if c["row"] == r]
+        weight = float(np.mean([c["dark"] * 0.6 + c["turbulence"] * 0.4 for c in row]))
+        if weight < 0.45:
+            continue
         layers.append(
             {
-                "kind": "burst",
-                "t0": round(1.0 + c["row"] * 4.2 + 0.3 * c["col"], 3),
-                "dur": 0.12,
-                "gain": round(0.05 + 0.22 * c["white"] * (0.4 + c["gradient"]), 4),
-                "burst": "click",
-                "freq": round(_lerp(2200, 6500, c["gradient"]), 1),
-                "pan": _pan(c["cx"]),
+                "kind": LAYER_NOISE,
+                "model": "thunder",
+                "t0": round(r * (dur / rows) + 0.15, 3),
+                "dur": round(min(3.2, dur / 2), 2),
+                "gain": round(0.5 + 0.5 * weight, 3),
+                "freq": round(_lerp(48, 110, weight), 1),
+                "q": 0.9,
+                "crack": 0.5,
+                "decay": round(_lerp(1.1, 2.4, weight), 2),
+                "pan": _pan(float(np.mean([c["cx"] for c in row]))),
             }
         )
     return {
         "model": "storm",
-        "title": "Rain, wind and thunder",
-        "duration": 34,
-        "layers": layers,
-        "mapping": {
-            "rain noise level": "cloud/white brightness",
-            "rain high-pass cutoff": "cloud brightness",
-            "thunder rate & level": "cloud texture (turbulence)",
-            "lightning clicks": "sharp bright highlights",
-            "pan": "position of each feature",
-        },
+        "mapping": "cloud brightness → drop density · texture → drop pitch · dark mass → thunder",
         "explain": (
-            "Rain is dense high-frequency noise; how bright and how textured the cloud is decides "
-            "how much rain you hear and how hissy it is. Thunder is a low burst with a long decay, "
-            "placed where the cloud is thickest and most broken up. The sharpest bright highlights "
-            "become short electric clicks. The structure of the storm is therefore audible: the eye "
-            "becomes a drop in rain level."
+            "Rain is not a hiss: it is thousands of separate drops hitting leaves, "
+            "water and roofs, each a tiny resonance. Bright cloud makes more of them; "
+            "thick, dark cloud adds thunder — a crack with a rumble that outlives it."
         ),
+        "layers": layers,
+        "drop_count": total,
     }
 
 
@@ -179,50 +239,74 @@ def build_storm(grid: dict) -> dict:
 
 
 def build_fire(grid: dict) -> dict:
-    hot_cells = sorted(grid["cells"], key=lambda c: -c["hot"])
-    total_hot = grid["frame"]["hot"]
-    rng = np.random.default_rng(23)
-    layers = [
-        # low roar
-        {
-            "kind": "noise", "t0": 0, "dur": 26,
-            "gain": round(0.03 + 0.14 * min(1.0, total_hot * 6), 4),
-            "filter": "lowpass", "freq": round(_lerp(90, 260, grid["frame"]["brightness"]), 1),
-            "q": 0.8, "pan": 0.0,
-        }
-    ]
-    # crackle: impulses concentrated where the fire actually is
-    for c in hot_cells[:16]:
-        rate = 4 + int(26 * c["hot"])
-        for k in range(rate):
-            layers.append(
+    layers: list[dict] = []
+    rng = _rng(37)
+    dur = grid["duration"]
+    hot = [c for c in _cells(grid) if c["hot"] > 0.12]
+    total = 0
+    crackles: list[dict] = []
+    for c in hot:
+        n = int(_lerp(4, 34, c["hot"]))
+        for _ in range(n):
+            crackles.append(
                 {
-                    "kind": "burst",
-                    "t0": round(c["row"] * 4.0 + k * (4.0 / rate) + rng.uniform(0, 0.12), 3),
-                    "dur": round(rng.uniform(0.03, 0.11), 3),
-                    "gain": round(0.03 + 0.22 * c["hot"] * rng.uniform(0.5, 1.0), 4),
-                    "burst": "crackle",
-                    "freq": round(rng.uniform(1200, 6800), 1),
-                    "pan": _pan(c["cx"], 0.7),
+                    "t": round(float(c["row"] * (dur / grid["rows"]) + rng.uniform(0, dur / grid["rows"])), 4),
+                    "f": round(float(rng.uniform(1200, 7600)), 1),
+                    "g": round(float(0.15 + 0.6 * rng.random() * c["hot"]), 3),
+                    "p": _pan(c["cx"] + rng.uniform(-0.08, 0.08)),
+                    "d": round(float(rng.uniform(0.004, 0.014)), 4),
                 }
             )
+            total += 1
+    crackles.sort(key=lambda d: d["t"])
+    chunk = max(1, total // 26) if total else 1
+    for i in range(0, len(crackles), chunk):
+        layers.append(
+            {
+                "kind": LAYER_HIT,
+                "model": "crackle",
+                "t0": crackles[i]["t"],
+                "dur": 0.05,
+                "gain": 0.55,
+                "hits": crackles[i : i + chunk],
+            }
+        )
+    flame = float(np.mean([c["hot"] for c in _cells(grid)]))
+    layers.append(
+        {
+            "kind": LAYER_NOISE,
+            "model": "roar",
+            "t0": 0.0,
+            "dur": dur,
+            "gain": round(0.18 + 0.55 * flame, 3),
+            "freq": round(_lerp(140, 420, flame), 1),
+            "q": 0.8,
+            "pan": 0.0,
+        }
+    )
+    smoke = float(np.mean([c["white"] + c["dark"] for c in _cells(grid)]))
+    layers.append(
+        {
+            "kind": LAYER_SWELL,
+            "model": "plume",
+            "t0": 0.0,
+            "dur": dur,
+            "gain": round(0.10 + 0.28 * smoke, 3),
+            "freq": 900,
+            "period": round(_lerp(9.0, 3.4, flame), 2),
+            "pan": 0.0,
+        }
+    )
     return {
         "model": "fire",
-        "title": "Combustion crackle",
-        "duration": 26,
-        "layers": layers,
-        "mapping": {
-            "crackle rate": "fraction of hot (orange/red/yellow) pixels",
-            "crackle brightness": "random within 1.2–6.8 kHz",
-            "roar level & cutoff": "hot pixel fraction, frame brightness",
-            "pan": "where in the frame the fire is",
-        },
+        "mapping": "hot-pixel fraction → crackle rate + roar cutoff · smoke → slow plume",
         "explain": (
-            "Fire is a low roar plus thousands of tiny explosions. Cells with a high fraction of "
-            "orange, red and yellow pixels crackle fastest and loudest, so a dense plume sounds "
-            "dense and a thin one sounds sparse. Crackle pitch is random within a broadband range "
-            "because combustion pops are broadband, not pitched."
+            "Fire is combustion made audible: the crackle is thousands of tiny "
+            "implosions of sap and air, the roar is the flame front moving. More "
+            "orange in the frame, more of both — plus the slow breath of the smoke."
         ),
+        "layers": layers,
+        "crackle_count": total,
     }
 
 
@@ -230,40 +314,61 @@ def build_fire(grid: dict) -> dict:
 
 
 def build_ocean(grid: dict) -> dict:
-    layers = []
-    for c in grid["cells"]:
-        swell = 0.6 * c["water"] + 0.4 * c["brightness"]
-        if c["row"] % 2 == 0:
+    layers: list[dict] = []
+    dur = grid["duration"]
+    water = float(np.mean([c["water"] + c["brightness"] * 0.4 for c in _cells(grid)]))
+    grad = float(np.mean([c["gradient"] for c in _cells(grid)]))
+    layers.append(
+        {
+            "kind": LAYER_NOISE,
+            "model": "sub",
+            "t0": 0.0,
+            "dur": dur,
+            "gain": round(0.22 + 0.30 * water, 3),
+            "freq": 78,
+            "q": 0.6,
+            "pan": 0.0,
+        }
+    )
+    for r in range(grid["rows"]):
+        row = [c for c in _cells(grid) if c["row"] == r]
+        bright = float(np.mean([c["brightness"] for c in row]))
+        layers.append(
+            {
+                "kind": LAYER_SWELL,
+                "model": "swell",
+                "t0": round(r * (dur / grid["rows"]), 3),
+                "dur": round(dur / grid["rows"], 3),
+                "gain": round(0.20 + 0.45 * bright, 3),
+                "freq": round(_lerp(420, 1800, bright), 1),
+                "period": round(_lerp(7.5, 2.6, grad), 2),
+                "pan": _pan(float(np.mean([c["cx"] for c in row]))),
+            }
+        )
+    # foam: brief bright hisses on the sharpest cells
+    for c in _cells(grid):
+        if c["gradient"] > 0.62 and c["brightness"] > 0.5:
             layers.append(
                 {
-                    "kind": "noise",
-                    "t0": round(c["row"] * 0.34, 3),
-                    "dur": 1.1,
-                    "gain": round(0.02 + 0.16 * swell, 4),
-                    "filter": "lowpass",
-                    "freq": round(_lerp(140, 900, swell), 1),
-                    "q": 1.6,  # resonant enough to breathe rather than hiss
-                    "pan": _pan(c["cx"], 0.7),
+                    "kind": LAYER_NOISE,
+                    "model": "foam",
+                    "t0": round(c["row"] * (dur / grid["rows"]), 3),
+                    "dur": 0.5,
+                    "gain": round(0.10 + 0.14 * c["gradient"], 3),
+                    "freq": round(_lerp(2400, 6200, c["gradient"]), 1),
+                    "q": 1.4,
+                    "pan": _pan(c["cx"]),
                 }
             )
-    layers.append({"kind": "noise", "t0": 0, "dur": 24, "gain": 0.06,
-                   "filter": "lowpass", "freq": 220, "q": 1.0, "pan": 0.0})
     return {
         "model": "ocean",
-        "title": "Surge and swell",
-        "duration": 24,
-        "layers": layers,
-        "mapping": {
-            "surge cutoff": "water fraction, brightness",
-            "surge level": "same",
-            "pan": "horizontal position",
-        },
+        "mapping": "gradient → swell period · brightness → crest band · foam → high hiss",
         "explain": (
-            "Water is low, resonant noise that swells rather than hisses. Each band of the ocean "
-            "becomes a resonant low-pass surge whose brightness and cutoff follow how much of that "
-            "band is sea and how bright it is, so warm bright water sounds broader than cold dark "
-            "water."
+            "Water is weight and surge. The sub-bass is the mass of the sea, the swells "
+            "are the surf line's period as measured from the frame's gradient, and the "
+            "foam is the hiss of the crest breaking apart."
         ),
+        "layers": layers,
     }
 
 
@@ -271,45 +376,59 @@ def build_ocean(grid: dict) -> dict:
 
 
 def build_city(grid: dict) -> dict:
-    rng = np.random.default_rng(5)
-    layers = []
-    lights = sorted(grid["cells"], key=lambda c: -c["brightness"])[:34]
-    for c in lights:
-        n = int(2 + 14 * c["brightness"])
-        for k in range(n):
-            layers.append(
+    """Discrete glints: damped sines whose pitch is the light's brightness."""
+    layers: list[dict] = []
+    rng = _rng(53)
+    dur = grid["duration"]
+    glints: list[dict] = []
+    for c in _cells(grid):
+        if c["rel"] < 0.22:
+            continue
+        n = int(_lerp(1, 7, c["rel"]))
+        for _ in range(n):
+            glints.append(
                 {
-                    "kind": "tone",
-                    "t0": round(rng.uniform(0, 22), 3),
-                    "dur": round(rng.uniform(0.6, 2.2), 3),
-                    "gain": round(0.02 + 0.10 * c["brightness"], 4),
-                    # equal-loudness-friendly band, no scale imposed
-                    "freq": round(rng.uniform(400, 1400), 1),
-                    "shape": "sine",
-                    "attack": 0.01,
-                    "decay": round(rng.uniform(0.3, 0.8), 3),
-                    "pan": _pan(c["cx"]),
+                    "t": round(float(c["row"] * (dur / grid["rows"]) + rng.uniform(0, dur / grid["rows"])), 4),
+                    "f": round(float(_lerp(420, 1380, c["rel"]) * rng.uniform(0.97, 1.03)), 1),
+                    "g": round(float(0.10 + 0.36 * c["rel"] * rng.random()), 3),
+                    "p": _pan(c["cx"]),
+                    "d": round(float(rng.uniform(0.10, 0.34)), 3),
                 }
             )
-    layers.append({"kind": "noise", "t0": 0, "dur": 24, "gain": 0.03,
-                   "filter": "bandpass", "freq": 500, "q": 0.8, "pan": 0.0})
+    glints.sort(key=lambda d: d["t"])
+    chunk = max(1, len(glints) // 26) if glints else 1
+    for i in range(0, len(glints), chunk):
+        layers.append(
+            {
+                "kind": LAYER_HIT,
+                "model": "glint",
+                "t0": glints[i]["t"],
+                "dur": 0.4,
+                "gain": 0.5,
+                "glints": glints[i : i + chunk],
+            }
+        )
+    layers.append(
+        {
+            "kind": LAYER_NOISE,
+            "model": "body",
+            "t0": 0.0,
+            "dur": dur,
+            "gain": 0.10,
+            "freq": 180,
+            "q": 0.7,
+            "pan": 0.0,
+        }
+    )
     return {
         "model": "city",
-        "title": "Twinkling lights",
-        "duration": 24,
-        "layers": layers,
-        "mapping": {
-            "twinkle rate": "brightness of the cell",
-            "level": "brightness",
-            "pitch": "random 400–1400 Hz (equal-loudness band)",
-            "pan": "where the city is",
-        },
+        "mapping": "light density → glint rate · brightness → pitch (420–1380 Hz) · x → pan",
         "explain": (
-            "City light is discrete, not continuous, so each bright cell emits a scatter of short "
-            "glints whose number follows its brightness. Pitch is randomised inside the 400–1400 Hz "
-            "band, which the equal-loudness contours mark as least fatiguing over long listening. "
-            "Nothing is quantised: denser cities simply twinkle more."
+            "City light is discrete, not continuous, so each bright cell emits a short "
+            "glint whose number follows its brightness. Pitch stays in the 420–1380 Hz "
+            "band where the ear is most sensitive, and panning follows the map."
         ),
+        "layers": layers,
     }
 
 
@@ -317,41 +436,58 @@ def build_city(grid: dict) -> dict:
 
 
 def build_canopy(grid: dict) -> dict:
-    layers = []
-    for c in grid["cells"]:
-        if c["green"] < 0.05 and c["brightness"] < 0.25:
+    layers: list[dict] = []
+    rng = _rng(71)
+    dur = grid["duration"]
+    pings: list[dict] = []
+    for c in _cells(grid):
+        if c["green"] < 0.10:
             continue
-        height = 0.65 * c["green"] + 0.35 * c["brightness"]
-        n = int(1 + 5 * height)
-        for k in range(n):
-            layers.append(
+        n = int(_lerp(1, 6, c["green"]))
+        for _ in range(n):
+            pings.append(
                 {
-                    "kind": "tone",
-                    "t0": round(c["row"] * 1.0 + k * 0.18 + c["col"] * 0.02, 3),
-                    "dur": 0.9,
-                    "gain": round(0.02 + 0.12 * height, 4),
-                    "freq": round(_lerp(200, 900, height), 1),
-                    "shape": "sine",
-                    "attack": 0.002,
-                    "decay": 0.45,
-                    "pan": _pan(c["cx"]),
+                    "t": round(float(c["row"] * (dur / grid["rows"]) + rng.uniform(0, dur / grid["rows"])), 4),
+                    "f": round(float(_lerp(220, 880, c["turbulence"])), 1),
+                    "g": round(float(0.12 + 0.4 * c["green"] * rng.random()), 3),
+                    "p": _pan(c["cx"]),
+                    "d": round(float(rng.uniform(0.18, 0.6)), 3),
                 }
             )
+    pings.sort(key=lambda d: d["t"])
+    chunk = max(1, len(pings) // 22) if pings else 1
+    for i in range(0, len(pings), chunk):
+        layers.append(
+            {
+                "kind": LAYER_HIT,
+                "model": "ping",
+                "t0": pings[i]["t"],
+                "dur": 0.7,
+                "gain": 0.5,
+                "pings": pings[i : i + chunk],
+            }
+        )
+    layers.append(
+        {
+            "kind": LAYER_NOISE,
+            "model": "body",
+            "t0": 0.0,
+            "dur": dur,
+            "gain": 0.12,
+            "freq": 320,
+            "q": 0.8,
+            "pan": 0.0,
+        }
+    )
     return {
         "model": "canopy",
-        "title": "Resonant pings",
-        "duration": 22,
-        "layers": layers,
-        "mapping": {
-            "ping pitch": "canopy height (green fraction, brightness)",
-            "ping rate": "same",
-            "pan": "horizontal position",
-        },
+        "mapping": "green fraction → strike rate · texture → modal pitch (220–880 Hz)",
         "explain": (
-            "A forest is a resonator: trunks and leaves ring briefly when struck. Each cell emits "
-            "damped sines whose pitch and rate follow measured canopy density, so the treeline "
-            "rises and falls in pitch exactly as it does in the data."
+            "A forest canopy is a resonant structure: each dense green cell is struck "
+            "and rings at a pitch set by how textured it is. Sparse canopy is sparse "
+            "pings; dense, broken canopy is a shimmer."
         ),
+        "layers": layers,
     }
 
 
@@ -359,46 +495,66 @@ def build_canopy(grid: dict) -> dict:
 
 
 def build_plume(grid: dict) -> dict:
-    layers = []
-    for c in grid["cells"]:
-        density = 0.5 * c["white"] + 0.3 * c["brightness"] + 0.2 * c["turbulence"]
+    layers: list[dict] = []
+    dur = grid["duration"]
+    mass = float(np.mean([c["brightness"] for c in _cells(grid)]))
+    layers.append(
+        {
+            "kind": LAYER_NOISE,
+            "model": "body",
+            "t0": 0.0,
+            "dur": dur,
+            "gain": round(0.14 + 0.30 * mass, 3),
+            "freq": round(_lerp(70, 160, mass), 1),
+            "q": 0.6,
+            "pan": 0.0,
+        }
+    )
+    for r in range(grid["rows"]):
+        row = [c for c in _cells(grid) if c["row"] == r]
+        air = float(np.mean([c["white"] + c["brightness"] for c in row])) / 2
         layers.append(
             {
-                "kind": "noise",
-                "t0": round(c["row"] * 0.45, 3),
-                "dur": 0.5,
-                "gain": round(0.015 + 0.18 * density, 4),
-                "filter": "bandpass",
-                "freq": round(_lerp(500, 3200, density), 1),
-                "q": round(_lerp(0.9, 2.6, c["turbulence"]), 2),
-                "pan": _pan(c["cx"]),
+                "kind": LAYER_NOISE,
+                "model": "turbulence",
+                "t0": round(r * (dur / grid["rows"]), 3),
+                "dur": round(dur / grid["rows"], 3),
+                "gain": round(0.12 + 0.32 * air, 3),
+                "freq": round(_lerp(900, 4200, air), 1),
+                "q": 1.1,
+                "gust": 0.7,
+                "pan": _pan(float(np.mean([c["cx"] for c in row]))),
             }
         )
-    for c in sorted(grid["cells"], key=lambda c: -(c["white"] * c["gradient"]))[:8]:
-        layers.append(
-            {
-                "kind": "burst", "t0": round(4 + c["row"] * 3.0, 3), "dur": 0.18,
-                "gain": round(0.02 + 0.1 * c["white"], 4), "burst": "click",
-                "freq": round(_lerp(3000, 7000, c["gradient"]), 1), "pan": _pan(c["cx"]),
-            }
-        )
+    for c in _cells(grid):
+        if c["gradient"] > 0.7 and c["brightness"] > 0.45:
+            layers.append(
+                {
+                    "kind": LAYER_HIT,
+                    "model": "sparkle",
+                    "t0": round(c["row"] * (dur / grid["rows"]), 3),
+                    "dur": 0.3,
+                    "gain": 0.12,
+                    "glints": [
+                        {
+                            "t": round(float(c["row"] * (dur / grid["rows"]) + 0.05), 3),
+                            "f": round(float(_lerp(1800, 4800, c["brightness"])), 1),
+                            "g": 0.22,
+                            "p": _pan(c["cx"]),
+                            "d": 0.12,
+                        }
+                    ],
+                }
+            )
     return {
         "model": "plume",
-        "title": "Airy transport",
-        "duration": 26,
-        "layers": layers,
-        "mapping": {
-            "band level": "smoke/dust density (white fraction, brightness)",
-            "band cutoff": "density",
-            "Q": "texture (how ragged the plume is)",
-            "sparkle clicks": "sharpest bright specks",
-        },
+        "mapping": "mass → sub bed · brightness → transport band · sharp edges → sparkle",
         "explain": (
-            "Smoke and dust are neither water nor fire: they are airy, ragged, and they drift. "
-            "Each cell becomes a band of filtered noise whose level and cutoff follow measured "
-            "density and whose resonance follows how ragged the plume is, with brief sparkles "
-            "where the image has sharp bright specks."
+            "A plume is air carrying something: a deep bed for the mass, a moving "
+            "band for the transport, and brief sparkles where the edge of the cloud "
+            "is sharpest against the dark."
         ),
+        "layers": layers,
     }
 
 
@@ -406,47 +562,40 @@ def build_plume(grid: dict) -> dict:
 
 
 def build_space(grid: dict) -> dict:
-    layers = []
-    for c in grid["cells"]:
-        if c["brightness"] < 0.10:
+    """Caldwell's mapping: x is the scan axis, brightness is pitch."""
+    layers: list[dict] = []
+    dur = grid["duration"]
+    for c in _cells(grid):
+        if c["rel"] < 0.10:
             continue
-        # The published Caldwell 73 method: scan position -> pitch, brightness -> volume.
         layers.append(
             {
-                "kind": "tone",
-                "t0": round(c["cy"] * 16.0, 3),
-                "dur": 0.55,
-                "gain": round(0.02 + 0.16 * c["brightness"], 4),
-                "freq": round(_lerp(200, 1600, c["cx"]), 1),
-                "shape": "triangle",
-                "attack": 0.005,
-                "decay": 0.35,
-                "pan": _pan(c["cx"] * 0.6 + 0.2),
+                "kind": LAYER_TONE,
+                "model": "scan",
+                # left to right is time; the vertical position is where the
+                # sound sits in the stereo image
+                "t0": round(c["cx"] * dur, 3),
+                "dur": round(dur / grid["cols"], 3),
+                "gain": round(0.10 + 0.30 * c["rel"], 3),
+                "freq": round(_lerp(140, 1500, c["rel"]), 1),
+                "attack": 0.015,
+                "decay": 0.2,
+                "pan": _pan(c["cy"], 0.95),
             }
         )
     return {
         "model": "space",
-        "title": "NASA scan method",
-        "duration": 18,
-        "layers": layers,
-        "mapping": {
-            "pitch": "horizontal position (left = low, right = high)",
-            "volume": "brightness",
-            "time": "vertical position, top to bottom",
-        },
+        "mapping": "scan position → time · brightness → pitch (Caldwell 73)",
         "explain": (
-            "This record reproduces the rule NASA published for Caldwell 73: the image is read "
-            "left to right and top to bottom, horizontal position becomes pitch and brightness "
-            "becomes volume. It is here as a reference so you can compare our per-phenomenon "
-            "models against the agency's own method."
+            "This one follows NASA's own published method: the image is read left to "
+            "right and brightness becomes pitch, so the reference dataset sounds like "
+            "the sonification it is famous for rather than like ours."
         ),
+        "layers": layers,
     }
 
 
-# --------------------------------------------------------------------- maps
-
-
-MODELS = {
+BUILDERS = {
     "wind": build_wind,
     "storm": build_storm,
     "fire": build_fire,
@@ -457,28 +606,40 @@ MODELS = {
     "space": build_space,
 }
 
+# The same physical processes also read *any* frame; the deck offers these.
+MODELS = BUILDERS
 
-def model_for(dataset: dict) -> str:
-    """Which physical model a dataset plays through."""
-    model = dataset.get("model")
-    if model in MODELS:
-        return model
-    # fall back on the element grouping
+
+def build_spec(frame_bgr, shell: dict, cols: int = 12, rows: int = 6, seconds: float = 24.0) -> dict:
+    model = shell.get("model")
+    if model not in BUILDERS:
+        raise ValueError(f"unknown model {model!r}")
+    grid = measure_grid(frame_bgr, cols=cols, rows=rows)
+    grid["duration"] = seconds
+    # A frame's absolute brightness is arbitrary (a starfield is mostly black);
+    # every model that thresholds on light uses `rel`, the brightness relative to
+    # this frame's own bright end, so a dark frame is not silently mute.
+    bright = np.array([c["brightness"] for c in grid["cells"]], dtype=float)
+    top = float(np.percentile(bright, 92)) or 1.0
+    for c in grid["cells"]:
+        c["rel"] = round(float(np.clip(c["brightness"] / top, 0, 1)), 4)
+    body = BUILDERS[model](grid)
     return {
-        "storms": "storm",
-        "wind": "plume",
-        "fire": "fire",
-        "ocean": "ocean",
-        "land": "city",
-        "space": "space",
-    }.get(dataset.get("element", ""), "plume")
+        "model": model,
+        "title": shell.get("title") or shell.get("short") or model,
+        "duration": seconds,
+        "layers": body["layers"],
+        "mapping": body["mapping"],
+        "explain": body["explain"],
+        "grid": {
+            "cols": cols,
+            "rows": rows,
+            "cells": grid["cells"],
+        },
+        "frame_stats": grid["frame"],
+        **{k: v for k, v in body.items() if k in ("drop_count", "crackle_count")},
+    }
 
 
-def build_spec(frame_bgr, dataset: dict) -> dict:
-    model = model_for(dataset)
-    grid = measure_grid(frame_bgr)
-    spec = MODELS[model](grid)
-    spec["grid"] = {"cols": grid["cols"], "rows": grid["rows"], "cells": grid["cells"]}
-    spec["frame_stats"] = grid["frame"]
-    spec["dataset"] = dataset
-    return spec
+def model_for(shell: dict) -> str:
+    return shell.get("model", "plume")

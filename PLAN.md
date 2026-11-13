@@ -1,58 +1,92 @@
 # PLAN — The Earth Information Jukebox ("Terra Tunes")
 
-## 0. Revision 3 — the phenomenon rewrite (current)
+## 0. Revision 4 — the staging and engine rewrite (current)
 
-Revision 2 was still wrong in two ways the user named directly: **one generic
-engine made every record sound the same**, and the **scan-line motif** was a
-redundant visual tic rather than a real explanation. Revision 3 rebuilds both
-halves.
+The brief: *"the rain sound is just noise added from outside the engine, which
+needs to be redone entirely"*, *"backgrounds behind the jukebox should be
+generated images, keep rain and lightning but they lack detail"*, *"the girl
+should be an image or multiple images… she should greet me into the site, like a
+cut scene"*, *"the disc selection should be a disc shaped button, click to
+expand, the disc selected should replace the earth in the juke box top part and
+spin"*, *"scrolling down reveals the image/frame/video and full analysis"*, *"the
+bars need to be more aligned with the jukebox"*, *"optimised for all screens"*,
+*"clean up the jukebox borders"*, *"remove any fake/generated non-NASA data
+frame"*.
 
-**What changed**
+**1. The engine, rebuilt as physics rather than filters** (`app/synth/models.py`)
 
-1. **One measurement, eight physical models.** `app/analysis.py` still measures
-   a 6 × 12 grid with OpenCV (brightness, saturation, hue, Laplacian texture,
-   gradient, hot/green/water/white/dark fractions). What is new is
-   `app/synth/models.py`: each record selects a model whose *synthesis rules*
-   match its physical process — band-passed airflow for wind, rain + thunder +
-   lightning transients for storms, combustion crackle over a roar for fire,
-   resonant surges for the ocean, twinkles for city lights, damped pings for
-   canopy, airy transport beds for plumes, and NASA's own position→pitch scan
-   for Caldwell 73. A spec is declarative, so the browser (Web Audio) and the
-   offline renderer (NumPy) play identical rules.
-2. **The scan line is gone.** `FrameScanner` shows the real grid over the
-   untouched frame and lights each cell with *the model's own input* (turbulence
-   for wind, hot fraction for fire, cloud fraction for storms) or the live level
-   of the layer sounding right now, with a hover readout. A measurement is
-   inspectable; a sweep is not.
-3. **The start screen is the user's jukebox illustration**, used unmodified,
-   with every control measured out of the artwork with OpenCV
-   (`frontend/src/lib/geometry.ts`) and overlaid as real DOM.
-4. **Discs, not cards.** Track selection is a rack of vinyl discs — CSS vinyl
-   with each NASA frame as the centre label. The disc physically flies from the
-   crate into the cradle on selection, the cabinet has genuine **off and on**
-   states (cold glass → lit tubes with rising bubbles, dim globe → live Earth,
-   unlit card → warm card), and powering on auto-loads a disc and plays it.
-5. **Cartoony, warm and illustrated.** The meadow, sky, sun, clouds, pollen and
-   cabinet glow are CSS; typography is Fraunces + Nunito. No generated imagery
-   is used anywhere: the only photographs in the app are NASA's (the thirteen
-   records and the Blue Marble disc).
+The previous version built a filtered-noise bed per measurement cell. Every
+phenomenon therefore shared one mechanism, and rain was, exactly as the user
+said, noise. Now:
 
-**Research behind the models** (see README for the mapping table): Sonification
-Handbook ch. 2/4 (Neuhoff — pitch is the sensitive channel, loudness is poor for
-absolute values, redundant mapping improves salience) and ch. 15 (Grond &
-Berger — timbre and physical models give intuitive correspondence; masking and
-stream segregation are the risks); the York weather-station sonification and
-Alexander's solar-wind "whooshing" (band-passed noise, speed → cutoff);
-*Atmospherics/Weather Works* (wind speed → amplitude, spatialisation);
-*Artificial Soundscapes* (wind speed → timbre); and NASA SVS 13786 for the
-Caldwell 73 reference.
+- **rain is an impact train** — ~300 individual droplets per frame, each a short
+  resonance (0.6–5 kHz, ~12 ms decay) with its own pitch, gain and stereo
+  position, density and pitch taken from cloud brightness and texture;
+- **thunder** is a bright crack plus a heavily low-passed rumble whose decay
+  follows the cloud's dark mass;
+- **wind** is a gust envelope (low-passed noise, squared) driving a turbulence
+  generator through a moving band-pass, plus a pressure bed and a thin whistle;
+- **fire** is Poisson crackle through damped resonators over a roar whose cutoff
+  follows flame area, plus a smoke plume;
+- **ocean** is water mass plus swells whose period comes from the measured
+  gradient, plus foam hiss;
+- **city / canopy** are damped glints and three-partial modal pings;
+- **space** is Caldwell's own scan: left to right is time, brightness is pitch,
+  y is stereo position;
+- every model also reads a frame-relative brightness (`rel`), so a mostly-black
+  starfield is not silently mute.
 
-The revision-2 sections below are kept for the record; where they conflict,
-revision 3 (and the code in `app/synth/`) is authoritative.
+`app/synth/render.py` and `frontend/src/lib/audio/phenomena.ts` were rewritten in
+step, block for block: the WAV download and the stream come from one set of
+rules. `backend/tests/test_engine.py` (12 tests) enforces that mechanisms differ,
+that rain is impacts and not a bed, that fire is spectrally brighter than ocean,
+and that a dark frame still sounds.
 
----
+**2. Staging: a cut scene, a painted world, and a stage that is only the cabinet**
 
-## 0. Revision 2 — what changed and why
+- the site opens on a three-frame **cut scene** (`Intro.tsx`): the girl greets
+  you, points at the cabinet, then sits with her headphones on; the page pushes
+  in and becomes the running screen;
+- her poses are **cut out of painted frames** (`public/art/pose-*-sprite.webp`,
+  magenta-keyed and colour-decontaminated with OpenCV), not drawn in SVG;
+- the world behind the cabinet is now **six painted backdrops**
+  (`world-{meadow,storm,night,aurora,fire,space}.webp`), selected per record,
+  with live weather on top: 150 rain streaks with splash rings, multi-branch
+  lightning with a procedural bolt path on Poisson timing, drifting cumulus,
+  aurora curtains, pollen/ash motes, fireflies;
+- the **stage is full-screen and holds only the cabinet**: title column on the
+  left, record label top-right, disc button bottom-left, scroll prompt
+  bottom-right — nothing overlaps anything at 390 px, 1024 px or 1920 px.
+
+**3. The jukebox as the subject**
+
+- overlays are placed from `geometry.ts`, whose fractions were **measured on the
+  cut-out sprite with OpenCV** (HSV/component masks in bounded ROIs, plus a Hough
+  pass for the globe) — that is what fixed "buttons completely off";
+- the dome now holds **the chosen record**, replacing the Blue Marble and
+  spinning while it plays; with the cabinet off the globe returns;
+- the analyser fan is drawn along the **arch of the glass** (elliptical
+  placement, per-bar rotation) instead of as a circle on top of it;
+- the crate is a **disc-shaped button** that expands into the collection;
+- the two controls are **brass plates set into the base**: a lever that throws
+  and a fader that slides, both with tell-tale lamps.
+
+**4. Scroll reveals the record**
+
+Under the stage: the frame at full width with the 6 × 12 measurement grid drawn
+on it (hover a cell for its numbers), the mapping and layer count for that
+record, the top measured cells, NASA's frame series for night lights
+(2012 / 2023 / change), the credit line, NASA SVS link, WAV download, and the
+deck for the full measurement sheet.
+
+**5. No generated data frames**
+
+Data imagery is NASA's, without exception. Illustration is now explicitly
+labelled: six backdrops and three character poses were painted for this project,
+and the cabinet is the team's own painting. Nothing generated is presented as a
+frame of data, and the copy in the app and in `README.md` says so.
+
+## 0b. Revision 2 — what changed and why
 
 The first build used procedurally generated frames and a musical synth layer
 (scale, tempo, reverb, "instruments"). That was judged too musical and not
@@ -178,20 +212,21 @@ energy · Shannon entropy · Hasler–Süsstrunk colorfulness · 8×8 luminance 
 luminance centroid · 8-band FFT radial profile · k-means dominant colors ·
 hue peaks.
 
-### Per-track instruments
+### Per-track instruments (revision 4)
 
-| Track | Instrument | Scale | Tempo |
-|---|---|---|---|
-| Night Lights | warm pad + pluck | Major Pentatonic | 72 |
-| Ocean Currents | flowing sine arp | Lydian | 96 |
-| GEOS Aerosols | noise textures | Dorian | 84 |
-| Air Quality | hazy pad | Natural Minor | 68 |
-| Perpetual Ocean | deep pulse + arp | Dorian | 88 |
-| DYAMOND CO₂ | low drone | Natural Minor | 60 |
-| ISS Lightning | percussive strikes | Hirajōshi | 120 |
-| Atmospheric River | shimmer | Major Pentatonic | 80 |
-| GEDI Forest Height | marimba plucks | Major Pentatonic | 76 |
-| Caldwell 73 | deep-space tones | Whole Tone | 64 |
+| record | model | mechanism |
+|---|---|---|
+| Night Lights | city | damped glints, 420–1380 Hz, rate from light density, pan from x |
+| Ocean Currents, Perpetual Ocean | ocean | water-mass sub bed + swells whose period is the measured gradient + foam hiss |
+| GEOS Aerosols, Air Quality, Global CO₂, Atmospheric River | plume | deep transport bed + moving band + sparkle on the sharpest edges |
+| Hurricane Maria, Thunderstorms | storm | individual droplet impacts + thunder (crack + rumble) + cloud mass bed |
+| Wind | wind | gust envelope → turbulence through a moving band-pass + pressure bed + whistle |
+| Wildfire Smoke | fire | Poisson crackle through damped resonators + roar + smoke plume |
+| GEDI Forest Height | canopy | three-partial modal pings, rate/pitch from green fraction and texture |
+| Caldwell 73 | space | Caldwell's scan: x → time, brightness → pitch, y → stereo |
+
+Every parameter in that table is read from the OpenCV measurement grid; none is
+hand-authored, and none is scheduled on a musical grid.
 
 ## 5. Tech stack
 

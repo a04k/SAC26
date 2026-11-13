@@ -2,20 +2,27 @@
 
 > NASA Space Apps Challenge 2026 · *The Earth Information Jukebox*
 
-An illustrated jukebox standing in a summer meadow. Throw the brass switch, light
-the tubes, pull a disc out of the crate — the disc flies into the cabinet, the
-needle drops, and **a real NASA visualization is played back as the sound of the
-phenomenon it shows**. Wind gusts because it is filtered air turbulence. Fire
-crackles because combustion is a train of impulses. A hurricane arrives with
-rain, thunder and lightning strikes.
+A hand-painted jukebox standing in a Ghibli meadow. A girl waves you in, points at
+the cabinet, and sits down to listen; the page pushes in and becomes the running
+screen. Throw the brass switch, and **a real NASA visualization is played back as
+the sound of the phenomenon it shows** — with the world behind the cabinet
+changing to match the record: a thunderstorm for the storms, an aurora for the
+currents, ash for the fires, deep space for Caldwell 73.
 
-**Every scientific picture in the app is NASA's.** The thirteen frames are
-bundled in `backend/app/assets/frames/`, each with its credit line and SVS link;
-the Blue Marble disc (`frontend/public/art/discs/earth.webp`, Apollo 17 frame,
-SVS 12564) is NASA's too. Discs, glow and light are drawn in CSS — no stock
-photography, no stock video, no generated imagery is used as data anywhere. The
-one illustrated asset is `frontend/public/art/jukebox.webp`, the user's own
-cabinet painting, which is the start screen and is served untouched.
+Scroll, and the record's own frame comes up with the measurement grid drawn on
+it, the mapping the engine used, and — where NASA publishes one — the frame
+series, each year measured by the same engine.
+
+**Every scientific picture is NASA's.** The thirteen frames are bundled in
+`backend/app/assets/frames/`, each with its credit line and SVS link; the Blue
+Marble disc (`frontend/public/art/discs/earth.webp`, Apollo 17 frame, SVS 12564)
+is NASA's too. Nothing generated is ever presented as a data frame.
+
+Three kinds of picture are illustration, and are labelled as such: the painted
+**backdrops** (`frontend/public/art/world-*.webp`), the **girl** in three poses
+(`pose-greet`, `pose-point`, `pose-listen`, cut out from painted frames), and the
+cabinet itself, which is the supplied painting cut out of its meadow
+(`jukebox-cabinet.webp`).
 
 ## Quick start
 
@@ -36,20 +43,37 @@ Vite proxies `/api` to the backend, so no environment variables are needed.
 
 ## The cabinet
 
-- **Off and on are different states.** Unlit glass, a cold globe and a dim card;
-  throwing the switch lights the tubes (with rising bubbles and a level column
-  driven by the live analyser), warms the cream card from inside, wakes the
-  globe, and throws a warm glow onto the meadow.
-- **The discs are discs.** Matt vinyl, concentric grooves, a fixed sheen and a
-  hole that never rotates, with each track's NASA frame as the centre label.
-  Choosing one lifts it from the crate and *flies it along an arc into the
-  cradle* (Web Animations, skipped under reduced motion), then drops the needle.
-- **Every control is real**: the brass power frame and the volume thumbwheel are
-  the artwork's own corner brackets, the speaker's amber jewel is play/pause,
-  and the dome's globe carries a spectrum halo drawn from the analyser.
-- **It opens into the deck.** The cabinet flips down into the analysis view:
-  the frame with its measured grid, transport, WAV download, the mapping table,
-  provenance and the accessibility description of the frame.
+- **A cut scene opens the site.** The girl greets you, points at the cabinet, and
+  sits down with her headphones on; each pose is a hand-painted frame cut out of
+  its background, and the page then pushes in and becomes the running screen
+  (`frontend/src/components/Intro.tsx`). Skippable, and skipped on
+  `prefers-reduced-motion`.
+- **The world is the backdrop, and it changes with the record.** Six painted
+  scenes — meadow, storm, night, aurora, fire, deep space — with live weather on
+  top: rain as individual streaks with splash rings, multi-branch lightning on
+  Poisson timing, drifting cumulus, aurora curtains, pollen, ash, fireflies and
+  the cabinet's own light spilling onto the grass.
+- **Off and on are different states.** Unlit glass, a cold dome and a dim card;
+  throwing the switch lights the tubes (rising bubbles and a level column driven
+  by the live analyser), warms the card, spins the record in the dome, and throws
+  a warm glow onto the meadow.
+- **The dome holds the record.** Pick a disc and it takes the globe's place in the
+  dome and turns while it plays; with the cabinet off, NASA's Blue Marble sits
+  there instead. The analyser fan is drawn along the arch of the glass, not as a
+  circle dropped on top of it.
+- **The crate is a disc.** Collapsed it is one record that spins; click it and the
+  whole collection fans out as real discs with NASA labels. Choosing one flies it
+  into the cabinet, then drops the needle.
+- **Every control is real**: brass power lever, brass volume fader, the speaker's
+  amber jewel as play/pause, and the "TERRA TUNES" plate as the label.
+- **Scrolling reveals the record.** Under the stage: the real frame with its 6 × 12
+  measurement grid drawn on it, the mapping and layer count for that record, its
+  frame series (night lights 2012, 2023, and the change), the credit line, WAV
+  download, and the scanner for your own frames.
+
+All overlay geometry lives in `frontend/src/lib/geometry.ts` as fractions of the
+cut-out sprite, measured from the artwork itself with OpenCV, so the glass, card,
+speaker and controls stay aligned at any viewport width.
 
 ## The records
 
@@ -61,45 +85,37 @@ Vite proxies `/api` to the backend, so no environment variables are needed.
 | 04 | Air Quality | plume | denser, heavier transport | NASA SVS 5533 · GEOS-CF |
 | 05 | Perpetual Ocean | ocean | surges cut by fast currents | NASA SVS 5425 · ECCO2 |
 | 06 | Global CO₂ | plume | a slow, wide swell of air | NASA SVS 5196 · DYAMOND |
-| 07 | **Hurricane Maria** | storm | rain, thunder, lightning clicks | NASA/NOAA Earth Observatory |
+| 07 | **Hurricane Maria** | storm | 300+ individual raindrops, thunder, lightning | NASA/NOAA Earth Observatory |
 | 08 | **Thunderstorms** | storm | sparse flashes into dense storm clusters | NASA SVS 5011 · ISS-LIS |
-| 09 | **Wind** | wind | band-passed airflow with gusts | NASA SVS 5148 · GEOS-FP |
-| 10 | **Wildfire Smoke** | fire | combustion crackle over a low roar | NASA Earth Observatory · MODIS |
+| 09 | **Wind** | wind | gusts through a moving band-pass, plus a pressure bed | NASA SVS 5148 · GEOS-FP |
+| 10 | **Wildfire Smoke** | fire | combustion crackle (300+ hits) over a low roar | NASA Earth Observatory · MODIS |
 | 11 | Atmospheric River | plume | a moisture ribbon of moving air | NASA SVS 4960 · GEOS |
 | 12 | GEDI Forest Height | canopy | damped pings, low for tall stands | NASA SVS 4950 · GEDI |
 | 13 | Caldwell 73 | space | NASA's published position→pitch scan | NASA SVS 13786 · Hubble |
 
 ## How the sound is made
 
-**1 · Measure (shared).** `backend/app/analysis.py` divides a frame into a 6 × 12
-grid and measures each cell with OpenCV: brightness, saturation, hue, Laplacian
-texture energy, gradient magnitude, and the fraction of hot / green / water /
-white / dark pixels, plus whole-frame statistics.
+There is no shared oscillators-and-filters patch: each record runs a **different
+physical model**. The backend builds the model from OpenCV measurements and
+returns a declarative spec; the browser rebuilds the same mechanism with WebAudio,
+and `render.py` renders the same spec with NumPy for the WAV download.
 
-**2 · Synthesize (per phenomenon).** `backend/app/synth/models.py` gives every
-record a physical model, not a musical one:
+| Model | Mechanism |
+|---|---|
+| wind | gust envelope from low-passed noise driving a turbulence generator through a moving band-pass, plus a pressure bed and a thin whistle |
+| storm | thousands of individual droplet impacts (resonators, 0.6–5 kHz, ~12 ms, each with its own pan) plus thunder (bright crack, long filtered rumble) |
+| fire | crackle as Poisson impulses through damped resonators (1–8 kHz) over a roar whose cutoff follows flame area, plus a smoke plume |
+| ocean | sub-bass water mass, band-passed swells whose period comes from the frame's gradient, foam hiss |
+| city | damped glints, rate from light density, pitch 420–1380 Hz, pan from x |
+| canopy | three-partial modal pings, rate and pitch from green fraction and texture |
+| plume | deep transport bed plus sparkle from the sharpest edges |
+| space | Caldwell's method: left to right is time, brightness is pitch, y is stereo position |
 
-| model | synthesis | grounded in |
-|---|---|---|
-| wind | band-passed noise; turbulence → centre frequency, gustiness → Q, gust level → amplitude | weather/solar-wind sonifications (York weather station; Alexander, U. Michigan) |
-| storm | rain noise 1–6 kHz + low thunder bursts + bright lightning clicks | storm sonifications; cloud brightness → rain density, texture sharpness → strike rate |
-| fire | stochastic crackle impulses 1–8 kHz over a 20–200 Hz roar | combustion acoustics; hot-pixel fraction → pop rate |
-| ocean | very low resonant surges + gated foam whoosh | *Atmospherics/Weather Works* tide mapping |
-| city | short sine glints inside the 400–1400 Hz equal-loudness band | Neuhoff on pitch/loudness interaction |
-| canopy | damped resonant pings; height → rate and pitch | resonant-material analogy |
-| plume | airy band-passed beds + sparkle from sharp bright pixels | *Artificial Soundscapes* wavetable/air mappings |
-| space | NASA's own scan (Caldwell 73): position → time, brightness → pitch | NASA SVS 13786 |
-
-The spec is declarative (`noise` / `tone` / `burst` layers with filter, pan and
-envelope), so **the browser and the offline renderer play the same rules**:
-`frontend/src/lib/audio/phenomena.ts` synthesises it with Web Audio, and
-`backend/app/synth/render.py` renders it with NumPy to a downloadable WAV.
-
-**3 · Check.** Masking and stream segregation are the real failure modes of
-parameter-mapped sonification, so the mappings are redundant (wind speed changes
-both filter centre and gust level), loudness is never the sole carrier of a
-value, and pitch for long listening stays out of the ear's least sensitive
-regions.
+Two rules hold everywhere: **nothing is scheduled in a musical grid** (no tempo,
+scale, chord or reverb), and **every parameter comes from a measurement**. Tests in
+`backend/tests/test_engine.py` enforce that the models differ in mechanism, that
+rain is impacts rather than a noise bed, that a dark starfield is still audible,
+and that a flat frame cannot invent variation.
 
 ## Reading the measurement grid
 
@@ -122,17 +138,26 @@ backend/
   app/main.py            FastAPI: catalog, frames, specs, renders, /api/analyze
   app/assets/frames/     the real NASA frames + SOURCES.md
   scripts/render_playlist.py   offline frames + specs + WAVs for the whole catalog
-  tests/test_engine.py   11 tests: models differ, renders audible, flat frames flat
+  tests/test_engine.py   12 tests: mechanisms differ, rain is impacts, starfield audible
+frontend/public/art/
+  jukebox-cabinet.webp    the supplied painting, cut out of its meadow (742×869)
+  world-*.webp            six painted backdrops: meadow, storm, night, aurora, fire, space
+  pose-*-sprite.webp      the girl in three poses, cut out for the cut scene and the stage
+  discs/earth.webp        NASA Blue Marble, for the dome and the logo
 frontend/
-  src/components/Jukebox.tsx      the cabinet and its overlays
-  src/components/DiscCrate.tsx    the record crate
+  src/components/Intro.tsx        the opening cut scene
+  src/components/World.tsx        backdrops + live weather (rain, lightning, aurora, motes)
+  src/components/Cabinet.tsx      the cabinet and every overlay on it
+  src/components/Girl.tsx         the girl on the stage (procedural, for weather + audio)
+  src/components/DiscSelector.tsx the disc that opens into the crate
+  src/components/NowPlaying.tsx   the frame, the grid, the mapping, the series
+  src/components/FrameScanner.tsx the measurement view, cell by cell
   src/components/VinylDisc.tsx    the disc itself
-  src/components/FrameScanner.tsx the measurement view
   src/lib/audio/phenomena.ts      Web Audio synthesis of a spec
   src/lib/audio/mechanism.ts      the machine: switch, transport, needle
   src/lib/discFlight.ts           the disc's arc into the cradle
   src/lib/geometry.ts             OpenCV-measured overlay positions
-  src/routes/index.tsx            cabinet + deck
+  src/routes/index.tsx            cut scene, stage, scroll reveal, deck
   src/routes/scan-frame.tsx       read any frame with any model
   src/routes/about.tsx            the method
 ```
@@ -161,14 +186,18 @@ description of its frame for users who cannot see it.
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q     # 11 passed
+cd backend && .venv/bin/python -m pytest -q     # 12 passed
 cd frontend && npm run build                    # tsc -b && vite build
 ls backend/app/assets/frames/                   # the real NASA frames
 ```
 
 ## Credits
 
-Frames © NASA SVS, NASA Earth Observatory, NASA GMAO, NASA/ESA Hubble. The
+Data frames © NASA SVS, NASA Earth Observatory, NASA GMAO, NASA/ESA Hubble. The
 Blue Marble disc is NASA's Apollo 17 frame (SVS 12564). Every visualization is
-linked from its record inside the app. Built for the NASA Space Apps Challenge
-2026 — *The Earth Information Jukebox*.
+linked from its record inside the app.
+
+Illustration, credited as illustration and never used as data: the cabinet is the
+team's own painting; the six backdrops and the girl's three poses were painted for
+this project. Built for the NASA Space Apps Challenge 2026 — *The Earth
+Information Jukebox*.

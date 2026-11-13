@@ -32,7 +32,7 @@ export function VinylDisc({
       role="img"
       aria-label={title ? `Vinyl record: ${title}` : 'Vinyl record'}
     >
-      <div className={`disc-grooves ${spinning ? 'disc-spin' : ''}`} data-disc={id}>
+      <div className={`disc-grooves ${spinning ? 'disc-spin' : ''}`} data-disc={id} style={{ backgroundColor: '#141013' }}>
         <div className="disc-label">
           <img src={labelUrl} alt="" loading="lazy" draggable={false} />
         </div>

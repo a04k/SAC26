@@ -1,13 +1,17 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Accessibility, BookOpen, Disc3, VolumeX, Waves } from 'lucide-react'
 import { useUI } from '../lib/store'
 import { mechanism } from '../lib/audio/mechanism'
-import { Meadow } from '../components/Meadow'
+import { api } from '../lib/api'
+import { sceneFor } from '../lib/world'
+import { ForegroundGrass, World } from '../components/World'
 
 /**
- * The meadow is the frame around the cabinet, so the header is a small painted
- * sign hung over it rather than a dark app bar.
+ * There is one background on this site: the world the cabinet stands in. The
+ * header is a small paper label floating over it, and it changes colour with
+ * the scene so the whole frame stays legible in a hurricane or at midnight.
  */
 export function RootLayout() {
   const {
@@ -18,8 +22,15 @@ export function RootLayout() {
     setReduceMotion,
     mechanismMuted,
     setMechanismMuted,
+    selectedId,
+    level,
+    powered,
   } = useUI()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+
+  const { data } = useQuery({ queryKey: ['datasets'], queryFn: api.datasets, staleTime: 1000 * 60 * 30 })
+  const dataset = data?.find((d) => d.id === selectedId) ?? data?.[0]
+  const scene = sceneFor(dataset?.model ?? 'plume', dataset?.id)
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setReduceMotion(true)
@@ -34,6 +45,8 @@ export function RootLayout() {
     mechanism.setMuted(mechanismMuted)
   }, [mechanismMuted])
 
+  const dark = scene.dark
+
   const nav = [
     { to: '/', label: 'Jukebox', icon: Disc3 },
     { to: '/scan', label: 'Scan a frame', icon: Waves },
@@ -42,7 +55,7 @@ export function RootLayout() {
 
   return (
     <div className="relative flex min-h-screen flex-col">
-      <Meadow />
+      <World scene={scene} powered={powered} level={level} />
 
       <a
         href="#main"
@@ -51,31 +64,42 @@ export function RootLayout() {
         Skip to the cabinet
       </a>
 
-      <header className="relative z-30 px-3 pt-3 sm:px-5">
-        <div className="mx-auto flex max-w-[1180px] items-center gap-2">
-          <Link
-            to="/"
-            className="group flex items-center gap-2 rounded-2xl px-1 py-1"
-            aria-label="Terra Tunes — home"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#7d5a30] bg-gradient-to-br from-[#f7dfa9] via-[#e0a95f] to-[#b57a3a] shadow-[0_2px_0_#7d5a30,0_6px_10px_-6px_rgba(60,38,12,.9)]">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#4a3521]">
-                <span className="h-3.5 w-3.5 overflow-hidden rounded-full">
+      <header className="relative z-40 px-3 pt-2 sm:px-5">
+        <div className="mx-auto flex max-w-[1500px] items-center gap-2">
+          <Link to="/" className="group flex items-center gap-2 rounded-2xl px-1 py-1" aria-label="Terra Tunes — home">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#6b4a20b2] bg-gradient-to-br from-[#f7dfa9] via-[#e0a95f] to-[#b57a3a] shadow-[0_2px_0_#6b4a20,0_6px_14px_-6px_rgba(20,12,4,.9)]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#3a2716]">
+                <span className="h-4 w-4 overflow-hidden rounded-full">
                   <img src="/art/discs/earth.webp" alt="" className="h-full w-full object-cover" />
                 </span>
               </span>
             </span>
-            <span className="flex flex-col leading-none">
-              <span className="font-display text-[15px] font-semibold tracking-[0.06em] text-ink drop-shadow-[0_1px_0_rgba(255,248,230,.7)]">
+            <span className="hidden flex-col leading-none sm:flex">
+              <span
+                className={`whitespace-nowrap font-display text-[16px] font-semibold tracking-[0.05em] ${
+                  dark ? 'text-[#fff3d4] drop-shadow-[0_1px_6px_rgba(0,0,0,.75)]' : 'text-ink'
+                }`}
+              >
                 Terra Tunes
               </span>
-              <span className="mt-0.5 text-[8.5px] font-bold uppercase tracking-[0.22em] text-ink-soft/80">
+              <span
+                className={`mt-0.5 whitespace-nowrap text-[8.5px] font-bold uppercase tracking-[0.22em] ${
+                  dark ? 'text-[#ffe9b8cc]' : 'text-[#7c6144d9]'
+                }`}
+              >
                 earth information jukebox
               </span>
             </span>
           </Link>
 
-          <nav aria-label="Main" className="ml-auto flex items-center gap-1 rounded-full border-2 border-[#d8b077] bg-[#fff8e8]/85 px-1 py-1 shadow-[0_2px_0_#d8b077] backdrop-blur">
+          <nav
+            aria-label="Main"
+            className={`ml-auto flex items-center gap-1 rounded-full px-1 py-1 ${
+              dark
+                ? 'border border-[#ffe9b840] bg-[#1b150e8c] backdrop-blur-md'
+                : 'border-2 border-[#d8b077cc] bg-[#fff8e8b2] backdrop-blur-md'
+            }`}
+          >
             {nav.map(({ to, label, icon: Icon }) => {
               const active = pathname === to
               return (
@@ -85,8 +109,12 @@ export function RootLayout() {
                   aria-current={active ? 'page' : undefined}
                   className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-bold transition ${
                     active
-                      ? 'bg-[#e8b96f]/60 text-ink shadow-[0_1px_0_#fff8e8_inset]'
-                      : 'text-ink-soft hover:bg-[#f7e6c4] hover:text-ink'
+                      ? dark
+                        ? 'bg-[#ffe9b840] text-[#fff6e0]'
+                        : 'bg-[#e8b96f99] text-ink'
+                      : dark
+                        ? 'text-[#ffe9b8b2] hover:bg-white/10 hover:text-[#fff6e0]'
+                        : 'text-ink-soft hover:bg-[#f7e6c4] hover:text-ink'
                   }`}
                 >
                   <Icon size={13} />
@@ -102,7 +130,11 @@ export function RootLayout() {
               aria-pressed={mechanismMuted}
               aria-label="Mute the cabinet mechanism"
               title="Mute the cabinet mechanism"
-              className="rounded-full border-2 border-[#d8b077] bg-[#fff8e8]/80 p-1.5 text-ink-soft transition hover:text-ink"
+              className={`rounded-full p-1.5 transition ${
+                dark
+                  ? 'border border-[#ffe9b840] bg-[#1b150e8c] text-[#ffe9b8cc] hover:text-[#fff6e0]'
+                  : 'border-2 border-[#d8b077cc] bg-[#fff8e8b2] text-ink-soft hover:text-ink'
+              }`}
             >
               <VolumeX size={13} />
             </button>
@@ -111,8 +143,12 @@ export function RootLayout() {
               aria-pressed={reduceMotion}
               aria-label="Reduce motion"
               title="Reduce motion"
-              className={`rounded-full border-2 border-[#d8b077] p-1.5 transition ${
-                reduceMotion ? 'bg-[#e8b96f]/70 text-ink' : 'bg-[#fff8e8]/80 text-ink-soft hover:text-ink'
+              className={`rounded-full p-1.5 transition ${
+                reduceMotion
+                  ? 'bg-[#e8b96fcc] text-ink'
+                  : dark
+                    ? 'border border-[#ffe9b840] bg-[#1b150e8c] text-[#ffe9b8cc] hover:text-[#fff6e0]'
+                    : 'border-2 border-[#d8b077cc] bg-[#fff8e8b2] text-ink-soft hover:text-ink'
               }`}
             >
               <Accessibility size={13} />
@@ -122,8 +158,12 @@ export function RootLayout() {
               aria-pressed={highContrast}
               aria-label="High contrast"
               title="High contrast"
-              className={`rounded-full border-2 border-[#7d5a30] px-1.5 py-0.5 text-[9px] font-black tracking-wider transition ${
-                highContrast ? 'bg-ink text-cream' : 'bg-[#fff8e8]/80 text-ink-soft hover:text-ink'
+              className={`rounded-full border-2 px-1.5 py-0.5 text-[9px] font-black tracking-wider transition ${
+                highContrast
+                  ? 'border-[#3a2716] bg-[#3a2716] text-[#fff3d4]'
+                  : dark
+                    ? 'border-[#ffe9b84c] text-[#ffe9b8cc] hover:text-[#fff6e0]'
+                    : 'border-[#7d5a30] text-ink-soft hover:text-ink'
               }`}
             >
               HC
@@ -140,9 +180,14 @@ export function RootLayout() {
         <Outlet />
       </main>
 
-      <footer className="relative z-10 px-4 pb-5 pt-2 text-center text-[10px] font-semibold leading-relaxed text-ink/55">
-        Every frame is NASA&apos;s. Every sound is a measurement of one. · NASA Space Apps Challenge
-        2026 — The Earth Information Jukebox
+      {pathname === '/' && <ForegroundGrass scene={scene} />}
+
+      <footer
+        className={`pointer-events-none relative z-20 px-4 pb-1 pt-0.5 text-center text-[9px] font-semibold leading-tight ${
+          pathname === '/' ? 'hidden' : ''
+        } ${dark ? 'text-[#ffe9b880]' : 'text-[#3a2a1880]'}`}
+      >
+        Frames © NASA · every sound is a measurement of one · Earth Information Jukebox
       </footer>
     </div>
   )
