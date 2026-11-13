@@ -1,0 +1,49 @@
+import type { AnalyzeResponse, Dataset, Spec } from './types'
+
+const BASE = (import.meta.env?.VITE_API_URL as string | undefined) ?? ''
+
+async function json<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, init)
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`)
+  return res.json() as Promise<T>
+}
+
+export const api = {
+  datasets: () => json<Dataset[]>('/api/datasets'),
+
+  dataset: (id: string) => json<Dataset>(`/api/datasets/${id}`),
+
+  /** The measurement grid plus the phenomenon synthesis spec for one frame. */
+  spec: (id: string) => json<Spec>(`/api/datasets/${id}/spec`),
+
+  /** Small enough for sleeves and disc labels. */
+  frameUrl: (id: string) => `${BASE}/api/datasets/${id}/frame.webp`,
+
+  /** Full quality, for the measurement view. */
+  framePngUrl: (id: string) => `${BASE}/api/datasets/${id}/frame.png`,
+
+  assetUrl: (id: string, asset: string) => `${BASE}/api/datasets/${id}/assets/${asset}.png`,
+
+  renderUrl: (id: string) => `${BASE}/api/datasets/${id}/render.wav`,
+
+  /** The offline render of the same physical spec — same sound as the stream. */
+  renderWavUrl: (id: string) => `${BASE}/api/datasets/${id}/render.wav`,
+
+  analyze: async (file: File, model: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    return json<AnalyzeResponse>(`/api/analyze?model=${encodeURIComponent(model)}`, {
+      method: 'POST',
+      body: form,
+    })
+  },
+}
+
+export function imgFromFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
