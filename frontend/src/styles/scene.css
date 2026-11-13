@@ -1,0 +1,447 @@
+/* ---------------------------------------------------------------------------
+   The meadow scene, the cabinet's light, and the disc choreography.
+
+   Everything here is CSS layered over one authentic NASA Blue Marble frame
+   (`/art/discs/earth.webp`) plus the user's jukebox painting. No picture in the
+   app is synthesised — where something is drawn (a disc's grooves, the shadows,
+   the switch) it is drawn with CSS so it stays sharp and animatable.
+--------------------------------------------------------------------------- */
+
+/* --- the world ---------------------------------------------------------- */
+
+.scene-sky {
+  background:
+    radial-gradient(80% 55% at 50% 92%, #fdf0c8 0%, #f8dfae 26%, #f3cf9e 45%, transparent 72%),
+    radial-gradient(120% 90% at 50% 10%, #a5d3d4 0%, #bfdfd8 34%, #e7e5c8 62%, #f6e3bd 100%);
+}
+
+.scene-sun {
+  background: radial-gradient(
+    circle,
+    rgba(255, 246, 214, 0.95) 0%,
+    rgba(255, 226, 158, 0.55) 32%,
+    rgba(255, 209, 138, 0.18) 58%,
+    transparent 72%
+  );
+  animation: sun-breathe 14s ease-in-out infinite;
+}
+
+.scene-hills {
+  background:
+    radial-gradient(60% 100% at 12% 100%, #bcd6a8 0%, transparent 60%),
+    radial-gradient(70% 100% at 88% 100%, #a9c99a 0%, transparent 62%),
+    linear-gradient(to top, #b9d3a2 0%, #c6dbaa 42%, transparent 78%);
+}
+
+.scene-meadow {
+  background:
+    radial-gradient(90% 70% at 50% 100%, #d7d99a 0%, #c3d191 38%, #a9c489 70%, #8fb381 100%);
+}
+
+.scene-vignette {
+  background: radial-gradient(
+    105% 90% at 50% 45%,
+    transparent 46%,
+    rgba(74, 53, 33, 0.1) 74%,
+    rgba(58, 40, 22, 0.26) 100%
+  );
+}
+
+/* clouds painted with blurred blobs */
+.cloud {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, #fffdf6 0%, #fdf3dd 62%, rgba(253, 243, 221, 0) 100%);
+  filter: blur(6px);
+  opacity: 0.85;
+  animation: cloud-drift linear infinite;
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translate3d(-12%, 0, 0);
+  }
+  to {
+    transform: translate3d(112vw, 0, 0);
+  }
+}
+
+@keyframes sun-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+/* pollen / fireflies */
+.mote {
+  position: absolute;
+  border-radius: 999px;
+  background: #fff6cf;
+  box-shadow: 0 0 6px 2px rgba(255, 236, 170, 0.65);
+  animation: mote-drift linear infinite;
+}
+
+@keyframes mote-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(var(--dx, 30px), -120px, 0);
+    opacity: 0;
+  }
+}
+
+/* --- the cabinet -------------------------------------------------------- */
+
+.cabinet {
+  transform-origin: 50% 100%;
+  transition:
+    filter 900ms ease,
+    transform 900ms cubic-bezier(0.22, 0.8, 0.26, 1);
+}
+
+.cabinet-off {
+  filter: saturate(0.42) brightness(0.72) contrast(1.04) sepia(0.14);
+}
+
+.cabinet-on {
+  filter: saturate(1.1) brightness(1.03) contrast(1.02);
+}
+
+/* the glow the tubes throw into the meadow */
+.cabinet-glow {
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 186, 92, 0.5) 0%,
+    rgba(255, 164, 74, 0.22) 46%,
+    transparent 74%
+  );
+  transition: opacity 900ms ease;
+  animation: glow-flicker 7s ease-in-out infinite;
+}
+
+@keyframes glow-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  46% {
+    opacity: 0.92;
+  }
+  52% {
+    opacity: 1;
+  }
+  73% {
+    opacity: 0.95;
+  }
+}
+
+/* the illuminated tubes: warmed when the switch is on, cold glass when off */
+.tube-live {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 197, 108, 0) 0%,
+    rgba(255, 206, 126, 0.5) 10%,
+    rgba(255, 176, 78, 0.72) 50%,
+    rgba(255, 149, 58, 0.5) 88%,
+    rgba(255, 197, 108, 0) 100%
+  );
+  mix-blend-mode: screen;
+  transition: opacity 700ms ease;
+}
+
+.tube-bubble {
+  position: absolute;
+  border-radius: 999px;
+  background: #fff3c4;
+  box-shadow: 0 0 6px 2px rgba(255, 220, 130, 0.8);
+  animation: bubble-rise linear infinite;
+}
+
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(-260px) scale(1.05);
+    opacity: 0;
+  }
+}
+
+/* the label card behind the disc list, lit from inside */
+.label-card {
+  border-radius: 7px;
+  background:
+    radial-gradient(120% 120% at 12% 0%, #fff8e2 0%, #ffe9b3 52%, #f6d79a 100%);
+  box-shadow:
+    0 0 0 1px rgba(122, 84, 38, 0.45),
+    0 0 22px 2px rgba(255, 186, 92, 0.55),
+    0 0 0 4px rgba(165, 122, 62, 0.35) inset;
+  transition: box-shadow 700ms ease, filter 700ms ease;
+}
+
+.label-card-off {
+  filter: saturate(0.5) brightness(0.84);
+  box-shadow:
+    0 0 0 1px rgba(90, 64, 30, 0.5),
+    0 0 0 4px rgba(120, 92, 52, 0.32) inset;
+}
+
+/* --- discs -------------------------------------------------------------- */
+
+.disc {
+  --size: 120px;
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  isolation: isolate;
+}
+
+/* grooves: fine concentric rings, brighter where the light catches them */
+.disc-grooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.09) 0 0.6px,
+      rgba(0, 0, 0, 0.42) 0.6px 1.9px
+    ),
+    conic-gradient(
+      from 200deg,
+      rgba(255, 255, 255, 0.16) 0deg,
+      rgba(255, 255, 255, 0) 40deg,
+      rgba(255, 255, 255, 0.1) 120deg,
+      rgba(0, 0, 0, 0.18) 200deg,
+      rgba(255, 255, 255, 0.14) 300deg,
+      rgba(255, 255, 255, 0.16) 360deg
+    );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 240, 205, 0.35),
+    inset 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.disc-label {
+  position: absolute;
+  inset: 26%;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1.5px rgba(255, 247, 224, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.disc-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.disc-hole {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7%;
+  height: 7%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #14212a;
+  box-shadow: 0 0 0 3px rgba(255, 246, 222, 0.85), 0 0 0 5px rgba(0, 0, 0, 0.35);
+}
+
+.disc-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(
+    128deg,
+    rgba(255, 255, 255, 0.34) 0%,
+    rgba(255, 255, 255, 0.06) 18%,
+    rgba(255, 255, 255, 0) 34%,
+    rgba(255, 255, 255, 0.14) 58%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.disc-spin {
+  animation: disc-spin 3.4s linear infinite;
+}
+
+@keyframes disc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* the disc resting in the cradle, big */
+.disc-cradle {
+  filter: drop-shadow(0 12px 18px rgba(48, 30, 10, 0.55));
+}
+
+/* --- the switch --------------------------------------------------------- */
+
+.switch-body {
+  background: linear-gradient(#e9d3a8, #c9a56d 58%, #a9814a);
+  box-shadow:
+    0 1px 0 #fff6e2 inset,
+    0 6px 12px -6px rgba(60, 38, 12, 0.8);
+}
+
+.switch-lever {
+  background: linear-gradient(#fff4da, #d9bb8a 55%, #a9834e);
+  box-shadow:
+    0 1px 0 #fffaf0 inset,
+    0 4px 8px -3px rgba(50, 32, 10, 0.7);
+  transform-origin: 50% 100%;
+  transition: transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.switch-lever-on {
+  transform: rotate(0deg);
+}
+
+.switch-lever-off {
+  transform: rotate(-38deg);
+}
+
+@keyframes switch-hint {
+  0%,
+  100% {
+    opacity: 0.15;
+    box-shadow: 0 0 0 0 rgba(255, 214, 140, 0);
+  }
+  50% {
+    opacity: 0.95;
+    box-shadow: 0 0 18px 4px rgba(255, 206, 120, 0.55);
+  }
+}
+
+/* --- stage transitions -------------------------------------------------- */
+
+.open-door {
+  animation: door-open 1150ms cubic-bezier(0.2, 0.85, 0.24, 1) both;
+}
+
+@keyframes door-open {
+  0% {
+    opacity: 0;
+    transform: perspective(1400px) rotateX(-18deg) translateY(46px) scale(0.94);
+    filter: blur(6px);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1400px) rotateX(0) translateY(0) scale(1);
+  }
+}
+
+.close-door {
+  animation: door-close 480ms ease-in both;
+}
+
+@keyframes door-close {
+  to {
+    opacity: 0;
+    transform: translateY(30px) scale(0.97);
+    filter: blur(4px);
+  }
+}
+
+.stagger > * {
+  animation: rise-in 700ms cubic-bezier(0.2, 0.85, 0.24, 1) both;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 80ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 160ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 240ms;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* a travelling sleeve, position driven from JS via CSS vars */
+.flyer {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transform: translate3d(var(--fx, 0px), var(--fy, 0px), 0) scale(var(--fs, 1));
+  transition:
+    transform var(--fdur, 760ms) cubic-bezier(0.32, 0.72, 0.2, 1),
+    opacity var(--fdur, 760ms) ease;
+  will-change: transform;
+}
+
+/* meter bars in the chrome columns */
+.meter-bar {
+  background: linear-gradient(
+    to top,
+    rgba(255, 249, 224, 0.98) 0%,
+    rgba(255, 219, 141, 0.95) 34%,
+    rgba(255, 156, 62, 0.92) 72%,
+    rgba(255, 120, 40, 0.6) 100%
+  );
+  box-shadow: 0 0 10px 2px rgba(255, 178, 84, 0.7);
+  transition: height 90ms linear;
+}
+
+/* the speaker's paper cone pulsing with the signal */
+.cone-pulse {
+  animation: cone-pulse 220ms ease-out infinite alternate;
+}
+
+@keyframes cone-pulse {
+  from {
+    transform: scale(0.985);
+  }
+  to {
+    transform: scale(1.015);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud,
+  .mote,
+  .tube-bubble,
+  .scene-sun,
+  .cabinet-glow,
+  .disc-spin,
+  .cone-pulse {
+    animation: none !important;
+  }
+}

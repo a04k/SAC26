@@ -12,58 +12,28 @@ export interface Dataset {
   description: string
   accessibility: string
   element: 'storms' | 'wind' | 'fire' | 'ocean' | 'land' | 'space' | string
+  model: 'wind' | 'storm' | 'fire' | 'ocean' | 'city' | 'canopy' | 'plume' | 'space'
   series: { asset: string; label: string }[]
 }
 
-export type { ScanPayload, ScanTone, SeriesPayload, ScanSnapshot, ScanSeriesStep } from './audio/scanner'
+export type { Spec, SpecCell, SpecLayer, PlaySnapshot } from './audio/phenomena'
 
-export interface BandRow {
-  band: number
-  label: string
-  luminance: number
-  saturation: number
-  hue: number
-  edge: number
-  texture: number
-  samples: number[]
-}
-
-export interface ScanResponse {
-  dataset: Dataset
-  scan: {
-    duration: number
-    bands: BandRow[]
-    tones: import('./audio/scanner').ScanTone[]
-    normalization: {
-      luminance_p2: number
-      luminance_p98: number
-      gain: number
-      method: string
-    }
-    summary: {
-      mean_luminance: number
-      mean_hue: number
-      mean_pitch_hz: number
-      mean_edge: number
-    }
-    mapping: Record<string, string>
-  }
-  series?: {
-    duration: number
-    steps: import('./audio/scanner').ScanSeriesStep[]
-  }
-}
+export const ELEMENTS = ['storms', 'wind', 'fire', 'ocean', 'land', 'space'] as const
+export type Element = (typeof ELEMENTS)[number]
 
 export interface AnalyzeResponse {
   filename: string
   width: number
   height: number
-  bands: BandRow[]
-  scan: ScanResponse['scan']
+  model: string
+  title: string
+  explain: string
+  duration: number
+  layers: import('./audio/phenomena').SpecLayer[]
+  mapping: Record<string, string>
+  grid: { cols: number; rows: number; cells: import('./audio/phenomena').SpecCell[] }
+  frame_stats: Record<string, number>
 }
-
-export const ELEMENTS = ['storms', 'wind', 'fire', 'ocean', 'land', 'space'] as const
-export type Element = (typeof ELEMENTS)[number]
 
 export const ELEMENT_META: Record<string, { label: string; blurb: string }> = {
   storms: { label: 'Storms', blurb: 'Hurricanes and thunderstorms' },

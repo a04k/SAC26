@@ -1,4 +1,56 @@
-# PLAN — The Earth Information Jukebox ("Terra Jukebox")
+# PLAN — The Earth Information Jukebox ("Terra Tunes")
+
+## 0. Revision 3 — the phenomenon rewrite (current)
+
+Revision 2 was still wrong in two ways the user named directly: **one generic
+engine made every record sound the same**, and the **scan-line motif** was a
+redundant visual tic rather than a real explanation. Revision 3 rebuilds both
+halves.
+
+**What changed**
+
+1. **One measurement, eight physical models.** `app/analysis.py` still measures
+   a 6 × 12 grid with OpenCV (brightness, saturation, hue, Laplacian texture,
+   gradient, hot/green/water/white/dark fractions). What is new is
+   `app/synth/models.py`: each record selects a model whose *synthesis rules*
+   match its physical process — band-passed airflow for wind, rain + thunder +
+   lightning transients for storms, combustion crackle over a roar for fire,
+   resonant surges for the ocean, twinkles for city lights, damped pings for
+   canopy, airy transport beds for plumes, and NASA's own position→pitch scan
+   for Caldwell 73. A spec is declarative, so the browser (Web Audio) and the
+   offline renderer (NumPy) play identical rules.
+2. **The scan line is gone.** `FrameScanner` shows the real grid over the
+   untouched frame and lights each cell with *the model's own input* (turbulence
+   for wind, hot fraction for fire, cloud fraction for storms) or the live level
+   of the layer sounding right now, with a hover readout. A measurement is
+   inspectable; a sweep is not.
+3. **The start screen is the user's jukebox illustration**, used unmodified,
+   with every control measured out of the artwork with OpenCV
+   (`frontend/src/lib/geometry.ts`) and overlaid as real DOM.
+4. **Discs, not cards.** Track selection is a rack of vinyl discs — CSS vinyl
+   with each NASA frame as the centre label. The disc physically flies from the
+   crate into the cradle on selection, the cabinet has genuine **off and on**
+   states (cold glass → lit tubes with rising bubbles, dim globe → live Earth,
+   unlit card → warm card), and powering on auto-loads a disc and plays it.
+5. **Cartoony, warm and illustrated.** The meadow, sky, sun, clouds, pollen and
+   cabinet glow are CSS; typography is Fraunces + Nunito. No generated imagery
+   is used anywhere: the only photographs in the app are NASA's (the thirteen
+   records and the Blue Marble disc).
+
+**Research behind the models** (see README for the mapping table): Sonification
+Handbook ch. 2/4 (Neuhoff — pitch is the sensitive channel, loudness is poor for
+absolute values, redundant mapping improves salience) and ch. 15 (Grond &
+Berger — timbre and physical models give intuitive correspondence; masking and
+stream segregation are the risks); the York weather-station sonification and
+Alexander's solar-wind "whooshing" (band-passed noise, speed → cutoff);
+*Atmospherics/Weather Works* (wind speed → amplitude, spatialisation);
+*Artificial Soundscapes* (wind speed → timbre); and NASA SVS 13786 for the
+Caldwell 73 reference.
+
+The revision-2 sections below are kept for the record; where they conflict,
+revision 3 (and the code in `app/synth/`) is authoritative.
+
+---
 
 ## 0. Revision 2 — what changed and why
 

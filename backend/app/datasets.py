@@ -25,6 +25,7 @@ class Dataset:
     accessibility: str
     series: tuple[tuple[str, str], ...] = ()
     element: str = "earth"   # storms | wind | fire | ice | ocean | land
+    model: str = ""         # wind|storm|fire|ocean|city|canopy|plume|space
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -60,6 +61,7 @@ DATASETS: list[Dataset] = [
             ("night-lights-2023", "2012→2023 change"),
         ),
         element="land",
+        model="city",
     ),
     Dataset(
         id="ocean-currents",
@@ -82,6 +84,7 @@ DATASETS: list[Dataset] = [
             "white streamlines add a steady hiss wherever the currents are dense."
         ),
         element="ocean",
+        model="ocean",
     ),
     Dataset(
         id="aerosols",
@@ -104,6 +107,7 @@ DATASETS: list[Dataset] = [
             "ear and smoke to the other, and you can hear where each species sits."
         ),
         element="wind",
+        model="plume",
     ),
     Dataset(
         id="air-quality",
@@ -126,6 +130,7 @@ DATASETS: list[Dataset] = [
             "in loudness, not melody."
         ),
         element="wind",
+        model="plume",
     ),
     Dataset(
         id="perpetual-ocean",
@@ -148,6 +153,7 @@ DATASETS: list[Dataset] = [
             "hear cutting through."
         ),
         element="ocean",
+        model="ocean",
     ),
     Dataset(
         id="co2",
@@ -169,6 +175,7 @@ DATASETS: list[Dataset] = [
             "pitches glide rather than jump — you hear a slow swell rather than a tune."
         ),
         element="wind",
+        model="plume",
     ),
     Dataset(
         id="hurricane-maria",
@@ -191,6 +198,7 @@ DATASETS: list[Dataset] = [
             "hear the eye pass."
         ),
         element="storms",
+        model="storm",
     ),
     Dataset(
         id="lightning",
@@ -213,6 +221,7 @@ DATASETS: list[Dataset] = [
             "loud gritty clusters, and the legend row itself is a steady low drone."
         ),
         element="storms",
+        model="storm",
     ),
     Dataset(
         id="wind",
@@ -235,6 +244,7 @@ DATASETS: list[Dataset] = [
             "noise wherever the wind is strong."
         ),
         element="wind",
+        model="wind",
     ),
     Dataset(
         id="wildfire-smoke",
@@ -257,6 +267,7 @@ DATASETS: list[Dataset] = [
             "quiet, so the sound follows each plume as the scan moves down the image."
         ),
         element="fire",
+        model="fire",
     ),
     Dataset(
         id="atmospheric-river",
@@ -279,6 +290,7 @@ DATASETS: list[Dataset] = [
             "river's shape as the scan moves down the frame."
         ),
         element="wind",
+        model="plume",
     ),
     Dataset(
         id="forest-height",
@@ -301,6 +313,7 @@ DATASETS: list[Dataset] = [
             "strongest passages."
         ),
         element="land",
+        model="canopy",
     ),
     Dataset(
         id="caldwell-73",
@@ -324,6 +337,7 @@ DATASETS: list[Dataset] = [
             "left-to-right, top-to-bottom scan NASA uses for its own sonifications."
         ),
         element="space",
+        model="space",
     ),
 ]
 

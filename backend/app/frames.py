@@ -43,11 +43,34 @@ def get_asset(asset_id: str) -> np.ndarray:
     return img
 
 
-def frame_png_bytes(dataset_id: str) -> bytes:
-    ok, buf = cv2.imencode(".png", get_frame(dataset_id))
+# Frames are shown as discs, sleeves and covers all over the UI, so keeping the
+# payload small matters more than pixel-perfect PNGs: encode once as WebP at a
+# sane display size and cache it in-process.
+_ENC_CACHE: dict[str, bytes] = {}
+_MAX_EDGE = 1400
+
+
+def frame_bytes(dataset_id: str, fmt: str = ".webp") -> bytes:
+    key = f"{dataset_id}:{fmt}"
+    if key in _ENC_CACHE:
+        return _ENC_CACHE[key]
+    img = get_frame(dataset_id)
+    h, w = img.shape[:2]
+    if max(h, w) > _MAX_EDGE:
+        f = _MAX_EDGE / max(h, w)
+        img = cv2.resize(img, (int(w * f), int(h * f)), interpolation=cv2.INTER_AREA)
+    if fmt == ".webp":
+        ok, buf = cv2.imencode(".webp", img, [cv2.IMWRITE_WEBP_QUALITY, 82])
+    else:
+        ok, buf = cv2.imencode(".png", img)
     if not ok:
-        raise RuntimeError("png encode failed")
-    return buf.tobytes()
+        raise RuntimeError("encode failed")
+    _ENC_CACHE[key] = buf.tobytes()
+    return _ENC_CACHE[key]
+
+
+def frame_png_bytes(dataset_id: str) -> bytes:
+    return frame_bytes(dataset_id, ".png")
 
 
 def asset_ids() -> list[str]:

@@ -1,4 +1,4 @@
-import type { AnalyzeResponse, Dataset, ScanResponse } from './types'
+import type { AnalyzeResponse, Dataset, Spec } from './types'
 
 const BASE = (import.meta.env?.VITE_API_URL as string | undefined) ?? ''
 
@@ -13,26 +13,26 @@ export const api = {
 
   dataset: (id: string) => json<Dataset>(`/api/datasets/${id}`),
 
-  /** The measured score for one EIC frame (per-band tones + optional series). */
-  scan: (id: string) => json<ScanResponse>(`/api/datasets/${id}/scan`),
+  /** The measurement grid plus the phenomenon synthesis spec for one frame. */
+  spec: (id: string) => json<Spec>(`/api/datasets/${id}/spec`),
 
-  /** Per-row FFT energy, for drawing where the sound comes from. */
-  spectrum: (id: string) =>
-    json<{ rows: number; bands: { band: number; energy: number[] }[] }>(
-      `/api/datasets/${id}/spectrum`,
-    ),
+  /** Small enough for sleeves and disc labels. */
+  frameUrl: (id: string) => `${BASE}/api/datasets/${id}/frame.webp`,
 
-  frameUrl: (id: string) => `${BASE}/api/datasets/${id}/frame.png`,
+  /** Full quality, for the measurement view. */
+  framePngUrl: (id: string) => `${BASE}/api/datasets/${id}/frame.png`,
 
-  assetUrl: (id: string, asset: string) =>
-    `${BASE}/api/datasets/${id}/assets/${asset}.png`,
+  assetUrl: (id: string, asset: string) => `${BASE}/api/datasets/${id}/assets/${asset}.png`,
 
   renderUrl: (id: string) => `${BASE}/api/datasets/${id}/render.wav`,
 
-  analyze: async (file: File) => {
+  analyze: async (file: File, model: string) => {
     const form = new FormData()
     form.append('file', file)
-    return json<AnalyzeResponse>('/api/analyze', { method: 'POST', body: form })
+    return json<AnalyzeResponse>(`/api/analyze?model=${encodeURIComponent(model)}`, {
+      method: 'POST',
+      body: form,
+    })
   },
 }
 

@@ -1,15 +1,14 @@
-"""Terra Jukebox API — direct pixel-to-sound engine.
+"""Terra Tunes API — per-phenomenon sonification of real NASA frames.
 
 Endpoints
   GET  /api/health
-  GET  /api/datasets                       catalog + provenance
+  GET  /api/datasets                 the 13 records with provenance
   GET  /api/datasets/{id}
-  GET  /api/datasets/{id}/frame.png        the real bundled NASA frame
-  GET  /api/datasets/{id}/assets/{asset}.png   time-series frames, if any
-  GET  /api/datasets/{id}/scan             the playable score (per latitude band)
-  GET  /api/datasets/{id}/spectrum         FFT band energies per row (visual overlay)
-  GET  /api/datasets/{id}/render.wav       offline render of the scan
-  POST /api/analyze                        scan any uploaded image
+  GET  /api/datasets/{id}/frame.png  the real bundled NASA frame
+  GET  /api/datasets/{id}/assets/{asset}.png   time-series frames
+  GET  /api/datasets/{id}/spec       measurement grid + phenomenon synthesis spec
+  GET  /api/datasets/{id}/render.wav the offline render of the same spec
+  POST /api/analyze                  measure any uploaded frame and build a spec
 """
 
 import cv2
@@ -19,11 +18,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from .datasets import DATASETS, DATASETS_BY_ID
-from .frames import asset_ids, frame_png_bytes, get_asset, get_frame
-from .scan import band_rows, frame_scan, series_scan
-from .synth import read_image, render_frame_wav
+from .frames import asset_ids, frame_bytes, get_asset, get_frame
+from .synth import MODELS, build_spec, model_for, render_spec_wav
 
-app = FastAPI(title="Terra Jukebox API", version="2.0.0")
+app = FastAPI(title="Terra Tunes API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,6 +29,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+MAX_SIDE = 900  # analysis is scale-independent; keeps uploads fast
 
 
 def _dataset(dataset_id: str):
@@ -40,9 +40,23 @@ def _dataset(dataset_id: str):
     return ds
 
 
+def _downscale(img: np.ndarray, max_side: int = MAX_SIDE) -> np.ndarray:
+    h, w = img.shape[:2]
+    s = max(h, w)
+    if s <= max_side:
+        return img
+    f = max_side / s
+    return cv2.resize(img, (int(w * f), int(h * f)), interpolation=cv2.INTER_AREA)
+
+
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "datasets": len(DATASETS), "assets": len(asset_ids())}
+    return {
+        "status": "ok",
+        "datasets": len(DATASETS),
+        "assets": len(asset_ids()),
+        "models": sorted(MODELS),
+    }
 
 
 @app.get("/api/datasets")
@@ -55,10 +69,26 @@ def get_dataset(dataset_id: str) -> dict:
     return _dataset(dataset_id).to_dict()
 
 
+@app.get("/api/datasets/{dataset_id}/frame.webp")
+def get_frame_webp(dataset_id: str) -> Response:
+    """The track's frame, for sleeves, labels and the measurement view."""
+    _dataset(dataset_id)
+    return Response(
+        frame_bytes(dataset_id, ".webp"),
+        media_type="image/webp",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @app.get("/api/datasets/{dataset_id}/frame.png")
 def get_frame_png(dataset_id: str) -> Response:
+    """Same frame, lossless — used by the scanner and available for download."""
     _dataset(dataset_id)
-    return Response(frame_png_bytes(dataset_id), media_type="image/png")
+    return Response(
+        frame_bytes(dataset_id, ".png"),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @app.get("/api/datasets/{dataset_id}/assets/{asset_id}.png")
@@ -74,66 +104,39 @@ def get_asset_png(dataset_id: str, asset_id: str) -> Response:
     return Response(buf.tobytes(), media_type="image/png")
 
 
-@app.get("/api/datasets/{dataset_id}/scan")
-def get_scan(dataset_id: str, seconds: float = 24.0) -> JSONResponse:
+@app.get("/api/datasets/{dataset_id}/spec")
+def get_spec(dataset_id: str) -> JSONResponse:
     ds = _dataset(dataset_id)
-    frame = get_frame(dataset_id)
-    scan = frame_scan(frame, seconds=seconds)
-    payload: dict = {"dataset": ds.to_dict(), "scan": scan}
-    if ds.series:
-        frames = [get_asset(a) for a, _ in ds.series]
-        labels = [label for _, label in ds.series]
-        payload["series"] = series_scan(frames, labels)
-    return JSONResponse(payload)
-
-
-@app.get("/api/datasets/{dataset_id}/spectrum")
-def get_spectrum(dataset_id: str) -> JSONResponse:
-    """Per-row FFT energy — lets the viewer draw where the sound comes from."""
-    _dataset(dataset_id)
-    frame = get_frame(dataset_id)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-    rows = 24
-    bands = []
-    for b in range(rows):
-        y0, y1 = int(b * gray.shape[0] / rows), int((b + 1) * gray.shape[0] / rows)
-        row = gray[y0:y1].mean(axis=0)
-        spec = np.abs(np.fft.rfft(row - row.mean()))
-        edges = [0.0, 0.1, 0.25, 0.5, 1.0]
-        energies = []
-        for i in range(4):
-            lo, hi = int(edges[i] * len(spec)), int(edges[i + 1] * len(spec))
-            energies.append(float(spec[lo:hi].mean()) if hi > lo else 0.0)
-        m = max(energies) or 1.0
-        bands.append({"band": b, "energy": [round(e / m, 3) for e in energies]})
-    return JSONResponse({"bands": bands, "rows": rows})
+    spec = build_spec(_downscale(get_frame(dataset_id)), ds.to_dict())
+    spec.pop("dataset", None)
+    spec["dataset_id"] = dataset_id
+    spec["model"] = model_for(ds.to_dict())
+    return JSONResponse(spec)
 
 
 @app.get("/api/datasets/{dataset_id}/render.wav")
 def get_render(dataset_id: str) -> Response:
-    _dataset(dataset_id)
-    wav = render_frame_wav(get_frame(dataset_id))
+    ds = _dataset(dataset_id)
+    spec = build_spec(_downscale(get_frame(dataset_id)), ds.to_dict())
     return Response(
-        wav,
+        render_spec_wav(spec),
         media_type="audio/wav",
         headers={"Content-Disposition": f'attachment; filename="terra-{dataset_id}.wav"'},
     )
 
 
 @app.post("/api/analyze")
-async def analyze(file: UploadFile = File(...)) -> JSONResponse:
+async def analyze(file: UploadFile = File(...), model: str = "plume") -> JSONResponse:
     raw = await file.read()
-    try:
-        img = read_image(raw)
-    except ValueError:
+    img = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
         raise HTTPException(400, "could not decode image")
-    scan = frame_scan(img)
-    return JSONResponse(
-        {
-            "filename": file.filename,
-            "width": int(img.shape[1]),
-            "height": int(img.shape[0]),
-            "bands": band_rows(img),
-            "scan": scan,
-        }
-    )
+    if model not in MODELS:
+        raise HTTPException(400, f"model must be one of {sorted(MODELS)}")
+    shell = {"model": model, "element": model}
+    spec = build_spec(_downscale(img), shell)
+    spec.pop("dataset", None)
+    spec["filename"] = file.filename
+    spec["width"] = int(img.shape[1])
+    spec["height"] = int(img.shape[0])
+    return JSONResponse(spec)

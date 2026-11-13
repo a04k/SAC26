@@ -1,13 +1,11 @@
-"""Render the full jukebox playlist offline.
+"""Render the whole catalog offline: frames, specs and WAVs.
 
-For every EIC track: save its OpenCV frame, extract features, derive
-sonification params, and render a 16-second stereo WAV. Writes a manifest so
-the output can be used as a standalone "curated playlist" deliverable.
+For every record this writes the bundled frame, the measured grid + synthesis
+spec (JSON) and the rendered audio — the same spec the web app synthesises live
+in the browser, so the WAVs are exactly what you hear.
 
-Usage:
     cd backend
-    python scripts/render_playlist.py            # -> ../playlist/
-    python scripts/render_playlist.py --seconds 32
+    .venv/bin/python scripts/render_playlist.py --out ../playlist
 """
 
 from __future__ import annotations
@@ -24,67 +22,57 @@ import cv2  # noqa: E402
 
 from app.datasets import DATASETS  # noqa: E402
 from app.frames import get_frame  # noqa: E402
-from app.sonify import features_to_params  # noqa: E402
-from app.synth import render_wav  # noqa: E402
-from app.vision import extract_features  # noqa: E402
+from app.synth import build_spec, render_spec_wav  # noqa: E402
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT.parent / "playlist"))
-    ap.add_argument("--seconds", type=int, default=16, help="loop length (advisory)")
     args = ap.parse_args()
 
     out = Path(args.out)
-    (out / "frames").mkdir(parents=True, exist_ok=True)
-    (out / "audio").mkdir(parents=True, exist_ok=True)
+    for sub in ("frames", "audio", "specs"):
+        (out / sub).mkdir(parents=True, exist_ok=True)
 
     manifest = []
     for i, ds in enumerate(DATASETS, start=1):
         frame = get_frame(ds.id)
-        features = extract_features(frame)
-        params = features_to_params(features, ds)
+        spec = build_spec(frame, ds.to_dict())
+        spec.pop("dataset", None)
+        wav = render_spec_wav(spec)
 
-        cv2.imwrite(str(out / "frames" / f"{i:02d}-{ds.id}.png"), frame)
-        wav = render_wav(params, features, seed_text=ds.id)
-        wav_path = out / "audio" / f"{i:02d}-{ds.id}.wav"
-        wav_path.write_bytes(wav)
+        slug = f"{i:02d}-{ds.id}"
+        cv2.imwrite(
+            str(out / "frames" / f"{slug}.jpg"), frame, [cv2.IMWRITE_JPEG_QUALITY, 92]
+        )
+        (out / "audio" / f"{slug}.wav").write_bytes(wav)
+        (out / "specs" / f"{slug}.json").write_text(json.dumps(spec, indent=2))
 
         manifest.append(
             {
                 "index": i,
                 "id": ds.id,
                 "title": ds.title,
-                "svs": ds.svs_url,
-                "frame": f"frames/{i:02d}-{ds.id}.png",
-                "audio": f"audio/{i:02d}-{ds.id}.wav",
-                "instrument": ds.instrument_name,
-                "scale": ds.scale_name,
-                "params": params,
-                "features": {
-                    k: features[k]
-                    for k in (
-                        "edge_density",
-                        "entropy",
-                        "colorfulness",
-                        "mean_hsv",
-                        "centroid",
-                    )
-                },
-                "description": ds.accessibility,
+                "short": ds.short,
+                "model": spec["model"],
+                "duration": spec["duration"],
+                "layers": len(spec["layers"]),
+                "svs": ds.svs_id,
+                "source": ds.svs_url,
+                "credit": ds.credit,
+                "sensor": ds.sensor,
+                "frame": f"frames/{slug}.jpg",
+                "audio": f"audio/{slug}.wav",
+                "spec": f"specs/{slug}.json",
             }
         )
-        print(f"[{i:02d}] {ds.short:<20} {params['root_note']:<3} {params['scale_name']:<18} "
-              f"{params['tempo']:>3} bpm -> {wav_path.name}")
+        print(
+            f"{i:02d}  {ds.id:<20} {spec['model']:<7} "
+            f"{len(spec['layers']):>4} layers  {spec['duration']:>5.1f}s  {len(wav) // 1024:>5} KiB"
+        )
 
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
-    (out / "README.md").write_text(
-        "# Terra Jukebox — generated playlist\n\n"
-        "Each folder pair is one EIC track: the analyzed frame and its\n"
-        "sonification rendered offline from the same OpenCV features the live\n"
-        "web app uses. `manifest.json` records every parameter.\n"
-    )
-    print(f"\nPlaylist written to {out}")
+    print(f"\n→ {out}")
     return 0
 
 
