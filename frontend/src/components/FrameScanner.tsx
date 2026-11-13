@@ -57,6 +57,7 @@ export function FrameScanner({
             <button
               key={m}
               onClick={() => setMode(m)}
+              aria-label={m === 'signal' ? `Show the measured ${signal.label} per cell` : 'Show the live level per cell'}
               aria-pressed={mode === m}
               className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition ${
                 mode === m ? 'bg-[#ffe1a1] text-[#4a3521]' : 'text-[#ffe9b8]/60 hover:text-[#ffe9b8]'
