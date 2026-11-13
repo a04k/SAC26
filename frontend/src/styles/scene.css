@@ -697,3 +697,12 @@
 @media (min-width: 768px) {
   .disc-selector .disc { --size: 112px !important; }
 }
+
+/* the record rail at the foot of the stage */
+.rail-track {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.rail-track::-webkit-scrollbar {
+  display: none;
+}

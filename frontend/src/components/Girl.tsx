@@ -10,10 +10,11 @@ import { useEffect, useState } from 'react'
  * listen once the needle drops. She still leans into the weather and sways with
  * the audio level, so the sprite never reads as a pasted cut-out.
  */
+// width × height of each keyed sprite, as written by the keying script
 const POSE = {
-  greet: { src: '/art/pose-greet-sprite.webp', w: 700, h: 299 },
-  point: { src: '/art/pose-point-sprite.webp', w: 712, h: 465 },
-  listen: { src: '/art/pose-listen-sprite.webp', w: 683, h: 514 },
+  greet: { src: '/art/pose-greet-sprite.webp', w: 299, h: 700 },
+  point: { src: '/art/pose-point-sprite.webp', w: 465, h: 712 },
+  listen: { src: '/art/pose-listen-sprite.webp', w: 514, h: 683 },
 } as const
 
 export type GirlPose = keyof typeof POSE
@@ -52,8 +53,8 @@ export function Girl({
     <div
       className={`pointer-events-none absolute z-20 select-none ${
         sitting
-          ? 'bottom-[1%] left-[clamp(-34%,-14vw,-8%)] h-[clamp(126px,21vh,286px)] md:left-[clamp(-44%,-31vw,-26%)] md:h-[clamp(158px,31vh,286px)]'
-          : 'bottom-[-1%] left-[clamp(-44%,-20vw,-12%)] h-[clamp(144px,24vh,380px)] md:left-[clamp(-52%,-37vw,-31%)] md:h-[clamp(210px,42vh,380px)]'
+          ? 'bottom-[0%] left-[clamp(-40%,-12vw,-7%)] h-[clamp(180px,30vh,330px)] md:left-[clamp(-56%,-17vw,-10%)] md:h-[clamp(240px,44vh,440px)]'
+          : 'bottom-[1%] left-[clamp(-36%,-11vw,-6%)] h-[clamp(230px,40vh,430px)] md:left-[clamp(-32%,-9vw,-4%)] md:h-[clamp(360px,63vh,660px)]'
       }`}
       style={{
         aspectRatio: `${pose_.w} / ${pose_.h}`,

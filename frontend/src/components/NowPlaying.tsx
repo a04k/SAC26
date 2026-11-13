@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, ExternalLink, Loader2, Pause, Play, Volume2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, ExternalLink, Loader2, Pause, Play, Volume2 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Dataset } from '../lib/types'
 import type { Spec, SpecCell } from '../lib/audio/phenomena'
@@ -49,6 +49,10 @@ export function NowPlaying({
   const cells = spec?.grid.cells ?? []
 
   const signal = SIGNAL[spec?.model ?? dataset.model] ?? 'brightness'
+  // step through the real records from down here too, wrapping around the crate
+  const recordIndex = Math.max(0, datasets.findIndex((d) => d.id === dataset.id))
+  const prevRecord = datasets[(recordIndex - 1 + datasets.length) % datasets.length]
+  const nextRecord = datasets[(recordIndex + 1) % datasets.length]
   const topCells = useMemo(
     () =>
       [...cells]
@@ -284,24 +288,52 @@ export function NowPlaying({
             </div>
           )}
 
-          {/* ---------------- next records ---------------- */}
+          {/* ---------------- change the record from down here ---------------- */}
           <div className="glass-card p-3">
-            <p className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-[#8a5a1c]">
-              keep digging
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {datasets
-                .filter((d) => d.id !== dataset.id)
-                .slice(0, 6)
-                .map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => onPick(d.id)}
-                    className="rounded-full border border-[#c9a268] bg-[#fff8e8]/70 px-2 py-1 text-[9.5px] font-bold text-[#3a2a18] transition hover:bg-[#fff8e8]"
-                  >
-                    {d.short}
-                  </button>
-                ))}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onPick(prevRecord.id)}
+                aria-label={`Previous record: ${prevRecord.short}`}
+                title={prevRecord.short}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#c9a268] bg-[#fff8e8]/70 text-[#8a5a1c] transition hover:bg-[#fff8e8] active:scale-95"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <div className="min-w-0 flex-1 text-center">
+                <p className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-[#8a5a1c]">
+                  change the record
+                </p>
+                <p className="truncate font-display text-[13.5px] font-semibold leading-tight text-ink">
+                  {dataset.short}
+                </p>
+                <p className="font-mono text-[9px] font-bold text-[#7c6144]">
+                  record {recordIndex + 1} of {datasets.length}
+                </p>
+              </div>
+              <button
+                onClick={() => onPick(nextRecord.id)}
+                aria-label={`Next record: ${nextRecord.short}`}
+                title={nextRecord.short}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#c9a268] bg-[#fff8e8]/70 text-[#8a5a1c] transition hover:bg-[#fff8e8] active:scale-95"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap justify-center gap-1.5 border-t border-[#d8b077]/60 pt-2">
+              {datasets.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => onPick(d.id)}
+                  aria-pressed={d.id === dataset.id}
+                  className={`rounded-full border px-2 py-1 text-[9.5px] font-bold transition ${
+                    d.id === dataset.id
+                      ? 'border-[#8a5a1c] bg-[#3a2716] text-[#ffe9b8]'
+                      : 'border-[#c9a268] bg-[#fff8e8]/70 text-[#3a2a18] hover:bg-[#fff8e8]'
+                  }`}
+                >
+                  {d.short}
+                </button>
+              ))}
             </div>
           </div>
         </div>

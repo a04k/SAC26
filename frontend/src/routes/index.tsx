@@ -9,6 +9,7 @@ import { useUI } from '../lib/store'
 import { flyDisc } from '../lib/discFlight'
 import { Cabinet } from '../components/Cabinet'
 import { DiscSelector } from '../components/DiscSelector'
+import { RecordRail } from '../components/RecordRail'
 import { Intro } from '../components/Intro'
 import { NowPlaying } from '../components/NowPlaying'
 import { Girl } from '../components/Girl'
@@ -30,19 +31,24 @@ const MODEL_WORD: Record<string, string> = {
  * The prompt to keep going.
  *
  * The cabinet fills the first screen, so the analysis below it is invisible
- * until you scroll. This strip is centred under the cabinet, states what is
- * down there in plain words, and retires itself the moment you scroll — on
- * phones and desktops alike.
+ * until you scroll. This is offered twice — as a compact chip in the header
+ * column on phones, and as a floating pill in the free right margin on wider
+ * screens — so it never lands on the cabinet's own controls. It retires itself
+ * as soon as you scroll.
  */
-function ScrollPrompt() {
-  const [gone, setGone] = useState(false)
-
+function useScrolledPast(px: number) {
+  const [past, setPast] = useState(false)
   useEffect(() => {
-    const onScroll = () => setGone(window.scrollY > 80)
+    const onScroll = () => setPast(window.scrollY > px)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [px])
+  return past
+}
+
+function ScrollPrompt({ compact = false }: { compact?: boolean }) {
+  const gone = useScrolledPast(80)
 
   return (
     <a
@@ -52,19 +58,19 @@ function ScrollPrompt() {
         document.getElementById('now-playing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }}
       aria-label="Scroll down for the frame, the measurements and the frame-by-frame analysis"
-      className={`pointer-events-auto absolute inset-x-0 bottom-3 z-30 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center gap-2 rounded-full border border-[#ffe9b86b] bg-[#120e08d9] px-3 py-2 text-[#ffe9b8] shadow-[0_10px_24px_-10px_rgba(0,0,0,.95)] backdrop-blur-sm transition-all duration-300 hover:bg-[#120e08] sm:bottom-4 sm:gap-2.5 sm:px-4 ${
-        gone ? 'pointer-events-none translate-y-3 opacity-0' : 'scroll-hint opacity-100'
-      }`}
+      className={`scroll-hint pointer-events-auto flex w-fit max-w-full items-center gap-2 rounded-full border border-[#ffe9b8]/60 bg-[#120e08d9] text-[#ffe9b8] shadow-[0_10px_24px_-10px_rgba(0,0,0,.95)] backdrop-blur-sm transition-all duration-300 hover:bg-[#120e08] ${
+        compact ? 'px-2.5 py-1.5' : 'px-4 py-2'
+      } ${gone ? 'pointer-events-none translate-y-2 opacity-0' : 'opacity-100'}`}
     >
       <span className="flex flex-col text-left">
-        <span className="font-display text-[9px] font-bold uppercase leading-tight tracking-[0.16em] text-[#ffd79a]">
+        <span className="font-display text-[8.5px] font-bold uppercase leading-tight tracking-[0.16em] text-[#ffd79a]">
           scroll for more
         </span>
-        <span className="text-[10px] font-semibold leading-tight text-[#ffe9b8d9]">
-          the frame · 72 measured cells · every frame in the series
+        <span className="text-[9.5px] font-semibold leading-tight text-[#ffe9b8d9]">
+          {compact ? 'the frame · the analysis' : 'the frame · 72 measured cells · every frame in the series'}
         </span>
       </span>
-      <ChevronDown size={16} className="shrink-0 animate-bounce text-[#ffd79a]" />
+      <ChevronDown size={compact ? 13 : 16} className="shrink-0 animate-bounce text-[#ffd79a]" />
     </a>
   )
 }
@@ -285,33 +291,29 @@ export function JukeboxPage() {
       */}
       <section
         aria-label="The jukebox"
-        className="stage-full relative flex w-full items-end justify-center overflow-hidden pb-[68px] pt-2 sm:pt-3"
+        className="stage-full relative flex w-full items-end justify-center overflow-hidden pb-[104px] pt-1 sm:pb-[92px]"
       >
-        {/* the title column: never overlaps the cabinet */}
-        <div className="pointer-events-none absolute left-3 top-3 z-30 w-[clamp(206px,19vw,282px)] sm:left-5 sm:top-5">
-          <p className="font-display text-[9px] font-bold uppercase tracking-[0.22em] text-[#ffd79a] drop-shadow-[0_1px_6px_rgba(8,12,20,.95)]">
-            NASA Space Apps · 2026
+        {/*
+          No page title here: the wordmark in the header already carries the
+          name, so the stage keeps only the live status of the scene and, before
+          the switch is thrown, the one instruction that matters.
+        */}
+        <div className="pointer-events-none absolute left-3 top-3 z-30 flex max-w-[min(52vw,300px)] flex-col items-start gap-1.5 sm:left-5 sm:top-4">
+          <h1 className="sr-only">The Earth Information Jukebox</h1>
+          <p className="inline-flex items-center gap-1.5 rounded-full border border-[#ffd79a59] bg-[#120e08b3] px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-[0.13em] text-[#ffe9b8] backdrop-blur-sm">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                !started ? 'animate-pulse bg-[#ffd47a]' : isPlaying ? 'bg-[#ffb454]' : 'bg-[#8a9a7a]'
+              }`}
+            />
+            {!started ? 'the switch is on the cabinet' : `${scene.label} · ${scene.weather}`}
           </p>
-          <h1 className="mt-1 font-display text-[clamp(20px,2.2vw,30px)] font-semibold leading-[1.03] text-[#fff6de] drop-shadow-[0_2px_12px_rgba(8,12,20,.95)]">
-            The Earth Information Jukebox
-          </h1>
-          <p className="mt-2 text-[11px] font-semibold leading-relaxed text-[#fff0d4] drop-shadow-[0_1px_7px_rgba(8,12,20,1)]">
-            Thirteen real NASA visualizations, each measured by a physical model and played as the
-            sound of the thing itself.
-          </p>
-          {!started ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#ffd79a73] bg-[#120e0899] px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-[0.13em] text-[#ffe9b8] backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ffd47a]" />
-              throw the brass switch on the cabinet
-            </p>
-          ) : (
-            <p className="mt-2 text-[10px] font-semibold leading-snug text-[#ffeccb] drop-shadow-[0_1px_6px_rgba(8,12,20,.95)]">
-              {scene.label} · {scene.weather}
-            </p>
-          )}
+          <div className="sm:hidden">
+            <ScrollPrompt compact />
+          </div>
         </div>
 
-        <div className="relative z-10" style={{ width: 'min(80vw, 596px, calc((100svh - 208px) * 0.854))' }}>
+        <div className="relative z-10" style={{ width: 'min(94vw, 800px, calc((100svh - 150px) * 0.854))' }}>
           <Cabinet
             datasets={datasets}
             selectedId={selectedId}
@@ -367,8 +369,20 @@ export function JukeboxPage() {
           discRefs={discRefs}
         />
 
-        {/* the prompt to scroll: says exactly what is below, on every screen */}
-        <ScrollPrompt />
+        {/* the rail: every record reachable from the bottom edge of the stage */}
+        <RecordRail
+          datasets={datasets}
+          selectedId={selectedId}
+          playing={isPlaying}
+          powered={powered}
+          onPick={(id) => void chooseDisc(id, true)}
+          discRefs={discRefs}
+        />
+
+        {/* the prompt to scroll, in the free right margin where nothing sits */}
+        <div className="absolute bottom-[104px] right-4 z-30 hidden sm:block">
+          <ScrollPrompt />
+        </div>
 
       </section>
 

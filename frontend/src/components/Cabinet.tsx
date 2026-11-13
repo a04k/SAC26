@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Pause, Play } from 'lucide-react'
+import { Pause, Play, Power } from 'lucide-react'
 import { CARD, CRADLE, DOME, GLOBE, JEWEL, SPEAKER, TUBES } from '../lib/geometry'
 import { api } from '../lib/api'
 import type { Dataset } from '../lib/types'
@@ -67,12 +67,6 @@ export function Cabinet({
       })),
     [],
   )
-
-  // an amber wash on the wooden panel for the two controls
-  const keyPlate =
-    'absolute rounded-[5px] bg-[linear-gradient(165deg,#fbe7b4,#d0a75f_30%,#9c7130_62%,#6a4a18)] ' +
-    'shadow-[0_3px_7px_rgba(0,0,0,.6),0_1px_0_rgba(255,244,210,.65)_inset,0_-1px_0_rgba(40,24,4,.5)_inset] ' +
-    'ring-1 ring-[#3d2a12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fff0c4]'
 
   return (
     <div className="relative mx-auto w-full" style={{ aspectRatio: '742 / 869' }}>
@@ -354,40 +348,56 @@ export function Cabinet({
           )}
         </button>
 
-        {/* ---------------- the two controls on the wooden panel ------------- */}
-        {/* brass power lever, left of the speaker plinth */}
+        {/* ---------------- the two brass controls -------------
+            Two round brass fittings, sitting in the picture's own brackets
+            either side of the speaker and machined from the same amber-and-silver
+            language as the jewel on the grille. Left is the power button with a
+            lamp ring; right is a rotary volume knob with a pointer. Round
+            fittings belong on this cabinet in a way a rectangular switch plate
+            never did.
+        */}
         <button
           onClick={onPower}
           aria-pressed={powered}
           aria-label={powered ? 'Turn the jukebox off' : 'Turn the jukebox on'}
           title={powered ? 'Power off' : 'Power on'}
-          className={`${keyPlate} z-20`}
-          style={{ left: '19.5%', top: '83.5%', width: '8.6%', height: '9.5%' }}
+          className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#fff0c4]"
+          style={{ left: '30.5%', top: '91.8%', width: '7.6%', aspectRatio: '1' }}
         >
-          <span className="absolute inset-[11%] overflow-hidden rounded-[3px] bg-[linear-gradient(#14100a,#2a2014)] shadow-[inset_0_2px_5px_rgba(0,0,0,.9)]">
-            {/* the milled slot */}
-            <span className="absolute inset-x-[30%] top-[10%] bottom-[10%] rounded-full bg-[#080604] shadow-[inset_0_0_4px_rgba(0,0,0,1)]" />
-            {/* the lever */}
+          <BrassFitting lit={powered}>
+            {/* the lamp ring around the cap */}
             <span
-              className="absolute left-1/2 h-[44%] w-[46%] -translate-x-1/2 rounded-[2px] transition-[top,bottom] duration-500"
+              className="absolute inset-[6%] rounded-full transition-all duration-500"
               style={{
-                top: powered ? '12%' : '46%',
-                background: 'linear-gradient(100deg,#fbe7b4,#c9a05a 46%,#7d5520)',
-                boxShadow: '0 1px 3px rgba(0,0,0,.85), 0 0 0 1px rgba(60,40,12,.7)',
+                background: powered
+                  ? 'radial-gradient(circle, rgba(255,214,120,.95) 0%, rgba(255,168,54,.55) 45%, transparent 68%)'
+                  : 'transparent',
+                boxShadow: powered ? '0 0 10px 3px rgba(255,190,90,.8)' : 'none',
               }}
             />
-            {/* the tell-tale lamp under the lever */}
+            {/* the cap */}
             <span
-              className="absolute bottom-[6%] left-1/2 h-[10%] w-[46%] -translate-x-1/2 rounded-full transition-all duration-500"
+              className="absolute inset-[18%] rounded-full transition-transform duration-200 group-active:scale-[.94]"
               style={{
-                background: powered ? '#ffdf9a' : '#4a3a20',
-                boxShadow: powered ? '0 0 10px 3px rgba(255,206,120,.95)' : 'none',
+                background: powered
+                  ? 'radial-gradient(circle at 36% 30%, #fff6d8, #ffc061 40%, #b7620c 76%, #6d3403)'
+                  : 'radial-gradient(circle at 36% 30%, #d8c49a, #a8865a 44%, #6b4c22 78%, #34220c)',
+                boxShadow:
+                  'inset 0 1px 2px rgba(255,250,230,.65), 0 2px 4px rgba(0,0,0,.75), 0 0 0 1px rgba(40,26,8,.75)',
               }}
             />
-          </span>
+            {/* the engraved power glyph */}
+            <span className="absolute inset-0 flex items-center justify-center">
+              <Power
+                className="h-[42%] w-[42%]"
+                strokeWidth={3}
+                style={{ color: powered ? 'rgba(96,48,0,.9)' : 'rgba(44,28,8,.85)' }}
+              />
+            </span>
+          </BrassFitting>
+          <Label>{powered ? 'on' : 'power'}</Label>
         </button>
 
-        {/* brass volume fader, right of the speaker plinth */}
         <div
           role="slider"
           tabIndex={0}
@@ -409,7 +419,7 @@ export function Cabinet({
             const startY = e.clientY
             const v0 = volume
             const move = (ev: PointerEvent) =>
-              setVolume(Math.max(0, Math.min(1, v0 + (startY - ev.clientY) / 140)))
+              setVolume(Math.max(0, Math.min(1, v0 + (startY - ev.clientY) / 150)))
             const up = () => {
               window.removeEventListener('pointermove', move)
               window.removeEventListener('pointerup', up)
@@ -418,22 +428,78 @@ export function Cabinet({
             window.addEventListener('pointerup', up)
           }}
           title={`Volume ${Math.round(volume * 100)}%`}
-          className={`${keyPlate} z-20 cursor-ns-resize`}
-          style={{ left: '72%', top: '83.5%', width: '8.6%', height: '9.5%' }}
+          className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize touch-none rounded-full outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#fff0c4]"
+          style={{ left: '69.6%', top: '91.8%', width: '7.6%', aspectRatio: '1' }}
         >
-          <span className="absolute inset-[11%] overflow-hidden rounded-[3px] bg-[linear-gradient(#14100a,#2a2014)] shadow-[inset_0_2px_5px_rgba(0,0,0,.9)]">
-            <span className="absolute inset-x-[46%] top-[8%] bottom-[8%] rounded-full bg-[#080604]" />
+          <BrassFitting lit={powered}>
+            {/* the knob: a brass disc with a pointer that turns with the level */}
             <span
-              className="absolute left-1/2 h-[16%] w-[66%] -translate-x-1/2 rounded-[2px] transition-[bottom] duration-100"
+              className="absolute inset-[20%] rounded-full transition-transform duration-150"
               style={{
-                bottom: `${6 + volume * 70}%`,
-                background: 'linear-gradient(#fbe7b4,#c9a05a 50%,#7d5520)',
-                boxShadow: '0 1px 3px rgba(0,0,0,.85), 0 0 0 1px rgba(60,40,12,.7)',
+                transform: `rotate(${-135 + volume * 270}deg)`,
+                background:
+                  'radial-gradient(circle at 34% 28%, #fbeec3, #d3ab63 40%, #96702f 74%, #4b320f)',
+                boxShadow:
+                  'inset 0 1px 2px rgba(255,250,230,.7), 0 2px 4px rgba(0,0,0,.8), 0 0 0 1px rgba(40,26,8,.8)',
+              }}
+            >
+              {/* the pointer */}
+              <span
+                className="absolute left-1/2 top-[8%] h-[30%] w-[13%] -translate-x-1/2 rounded-full"
+                style={{ background: 'rgba(52,32,6,.9)', boxShadow: '0 0 1px rgba(255,246,214,.8)' }}
+              />
+            </span>
+            {/* the lit travel arc */}
+            <span
+              className="absolute inset-[8%] rounded-full"
+              style={{
+                background: `conic-gradient(from 225deg, rgba(255,196,110,${0.15 + volume * 0.6}) 0deg, rgba(255,196,110,${
+                  0.15 + volume * 0.6
+                }) ${volume * 270}deg, transparent ${volume * 270}deg 270deg, transparent 360deg)`,
+                maskImage: 'radial-gradient(circle, transparent 62%, #000 66%, #000 84%, transparent 88%)',
+                WebkitMaskImage:
+                  'radial-gradient(circle, transparent 62%, #000 66%, #000 84%, transparent 88%)',
+                opacity: powered ? 1 : 0.25,
               }}
             />
-          </span>
+          </BrassFitting>
+          <Label>volume {Math.round(volume * 100)}</Label>
         </div>
       </div>
     </div>
+  )
+}
+
+/** the machined brass bezel both controls sit in */
+function BrassFitting({ lit, children }: { lit: boolean; children: React.ReactNode }) {
+  return (
+    <span
+      className="absolute inset-0 rounded-full"
+      style={{
+        background: 'conic-gradient(from 215deg, #6b4a18, #e9cd92 12%, #a8804a 28%, #5d3f14 52%, #d8b97e 74%, #7a5620 92%, #6b4a18)',
+        boxShadow: lit
+          ? '0 2px 6px rgba(0,0,0,.7), 0 0 10px rgba(255,186,96,.55), inset 0 0 0 1px rgba(38,24,6,.8)'
+          : '0 2px 6px rgba(0,0,0,.7), inset 0 0 0 1px rgba(38,24,6,.85)',
+        transition: 'box-shadow .5s ease',
+      }}
+    >
+      <span
+        className="absolute inset-[9%] rounded-full"
+        style={{
+          background: 'radial-gradient(circle at 42% 34%, #4b3823, #251a0d 62%, #120c05)',
+          boxShadow: 'inset 0 2px 5px rgba(0,0,0,.95)',
+        }}
+      />
+      {children}
+    </span>
+  )
+}
+
+/** the engraved caption under a fitting, always visible at small sizes */
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="pointer-events-none absolute -bottom-[13px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[6px] font-bold uppercase tracking-[0.12em] text-[#ffe9b8b3] drop-shadow-[0_1px_2px_rgba(0,0,0,.9)]">
+      {children}
+    </span>
   )
 }
