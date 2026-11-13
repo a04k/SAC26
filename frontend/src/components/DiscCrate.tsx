@@ -27,7 +27,7 @@ export function DiscCrate({
   datasets: Dataset[]
   selectedId: string
   onPick: (id: string) => void
-  discRefs: React.RefObject<Record<string, HTMLButtonElement | null>>
+  discRefs: React.RefObject<Record<string, HTMLElement | null>>
 }) {
   const n = datasets.length || 1
   return (
@@ -56,9 +56,6 @@ export function DiscCrate({
             return (
               <button
                 key={d.id}
-                ref={(el) => {
-                  discRefs.current[d.id] = el
-                }}
                 onClick={() => onPick(d.id)}
                 aria-label={`Record ${i + 1}: ${d.short}, ${MODEL_WORD[d.model] ?? d.model}`}
                 aria-pressed={active}
@@ -69,7 +66,12 @@ export function DiscCrate({
                   className="block transition-transform duration-300 group-hover:-translate-y-3"
                   style={{ transform: `rotate(${tilt}deg)` }}
                 >
-                  <span className="relative block">
+                  <span
+                    className="relative block"
+                    ref={(el) => {
+                      discRefs.current[d.id] = el
+                    }}
+                  >
                     <VinylDisc
                       id={d.id}
                       size={92}

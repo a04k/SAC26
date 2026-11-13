@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, ExternalLink, Pause, Play, RotateCcw, Volume2, Waves } from 'lucide-react'
+import { Download, ExternalLink, Loader2, Pause, Play, RotateCcw, Volume2, Waves } from 'lucide-react'
 import { api } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { phenomena, type PlaySnapshot, type Spec } from '../lib/audio/phenomena'
@@ -134,8 +134,11 @@ function Deck({
                 energy={energy}
               />
             ) : (
-              <div className="flex aspect-[16/9] items-center justify-center rounded-[18px] border-2 border-[#d8b077] bg-[#3a2716] text-[#ffe9b8]/70">
-                <LoadingDoor label={loading ? 'Measuring the frame…' : 'No spec yet'} />
+              <div className="flex aspect-[16/9] items-center justify-center rounded-[18px] border-2 border-[#d8b077] bg-[#3a2716]">
+                <p className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-[0.14em] text-[#ffe9b8]/80">
+                  {loading && <Loader2 size={13} className="animate-spin" />}
+                  {loading ? 'measuring the frame…' : 'no measurement yet'}
+                </p>
               </div>
             )}
 
@@ -314,7 +317,7 @@ export function JukeboxPage() {
   const [progress, setProgress] = useState(0)
   const [flying, setFlying] = useState(false)
   const cradleRef = useRef<HTMLDivElement>(null)
-  const discRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const discRefs = useRef<Record<string, HTMLElement | null>>({})
 
   const datasets = datasetsQuery.data ?? []
   const dataset = datasets.find((d) => d.id === selectedId) ?? datasets[0]
@@ -332,8 +335,10 @@ export function JukeboxPage() {
 
   const spec = specQuery.data ?? null
 
+  // Prime the player with the measured spec, but never yank a record that is
+  // already turning: `load()` stops the transport.
   useEffect(() => {
-    if (spec) phenomena.load(spec)
+    if (spec && !phenomena.isPlaying && phenomena.getSpec() !== spec) phenomena.load(spec)
   }, [spec])
 
   useEffect(() => {
