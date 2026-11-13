@@ -50,12 +50,12 @@ export function Girl({
 
   return (
     <div
-      className="pointer-events-none absolute z-20 select-none"
+      className={`pointer-events-none absolute z-20 select-none ${
+        sitting
+          ? 'bottom-[1%] left-[clamp(-34%,-14vw,-8%)] h-[clamp(126px,21vh,286px)] md:left-[clamp(-44%,-31vw,-26%)] md:h-[clamp(158px,31vh,286px)]'
+          : 'bottom-[-1%] left-[clamp(-44%,-20vw,-12%)] h-[clamp(144px,24vh,380px)] md:left-[clamp(-52%,-37vw,-31%)] md:h-[clamp(210px,42vh,380px)]'
+      }`}
       style={{
-        // feet in the grass, clear of the cabinet's plinth
-        bottom: sitting ? '1%' : '-1%',
-        left: sitting ? 'clamp(-44%, -31vw, -26%)' : 'clamp(-52%, -37vw, -31%)',
-        height: sitting ? 'clamp(158px, 31vh, 286px)' : 'clamp(210px, 42vh, 380px)',
         aspectRatio: `${pose_.w} / ${pose_.h}`,
         transform: `rotate(${sway * 1.1 + bob * 0.25}deg) translateY(${bob}px)`,
         transformOrigin: '50% 100%',

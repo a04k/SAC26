@@ -326,6 +326,23 @@
   transform: rotate(-38deg);
 }
 
+/* the "scroll for more" strip under the cabinet: a slow breathing glow */
+.scroll-hint {
+  animation: scroll-hint 3.4s ease-in-out infinite;
+}
+
+@keyframes scroll-hint {
+  0%,
+  100% {
+    box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.95), 0 0 0 0 rgba(255, 214, 140, 0);
+    border-color: rgba(255, 233, 184, 0.42);
+  }
+  50% {
+    box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.95), 0 0 20px 2px rgba(255, 200, 120, 0.5);
+    border-color: rgba(255, 233, 184, 0.95);
+  }
+}
+
 @keyframes switch-hint {
   0%,
   100% {

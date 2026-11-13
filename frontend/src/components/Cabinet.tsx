@@ -54,7 +54,6 @@ export function Cabinet({
   const selected = datasets.find((d) => d.id === selectedId) ?? datasets[0]
   const volume = useUI((s) => s.volume)
   const setVolume = useUI((s) => s.setVolume)
-  const bars = spectrum.length ? spectrum : Array.from({ length: 24 }, () => 0.04)
   const trackNo = Math.max(0, datasets.findIndex((d) => d.id === selected?.id)) + 1
 
   const bubbles = useMemo(
@@ -168,26 +167,31 @@ export function Cabinet({
             height: pct(DOME.height),
           }}
         >
-          {/* the halo: analyser bars fanned around the globe */}
+          {/*
+            The halo is the live analyser, not decoration: one bar per frequency
+            band, fanned along the glass arch. With the needle up there is no
+            signal, so there is no halo at all.
+          */}
           <div aria-hidden className="absolute inset-0 overflow-hidden">
-            {bars.map((v, i) => {
-              const a = -86 + (i / bars.length) * 172
-              return (
-                <span key={i} className="absolute inset-0" style={{ transform: `rotate(${a}deg)` }}>
-                  <span
-                    className="absolute left-1/2 rounded-full"
-                    style={{
-                      top: '1%',
-                      width: '1%',
-                      height: `${7 + v * 26}%`,
-                      transform: 'translateX(-50%)',
-                      background: `hsla(${32 + v * 46}, 96%, ${62 + v * 16}%, ${playing ? 0.3 + v * 0.62 : 0.1})`,
-                      boxShadow: playing && v > 0.18 ? '0 0 5px rgba(255,214,140,.85)' : 'none',
-                    }}
-                  />
-                </span>
-              )
-            })}
+            {playing &&
+              spectrum.map((v, i) => {
+                const a = -86 + (i / Math.max(1, spectrum.length - 1)) * 172
+                return (
+                  <span key={i} className="absolute inset-0" style={{ transform: `rotate(${a}deg)` }}>
+                    <span
+                      className="absolute left-1/2 rounded-full"
+                      style={{
+                        top: '1%',
+                        width: '1%',
+                        height: `${7 + v * 26}%`,
+                        transform: 'translateX(-50%)',
+                        background: `hsla(${32 + v * 46}, 96%, ${62 + v * 16}%, ${0.3 + v * 0.62})`,
+                        boxShadow: v > 0.18 ? '0 0 5px rgba(255,214,140,.85)' : 'none',
+                      }}
+                    />
+                  </span>
+                )
+              })}
           </div>
 
           {/*

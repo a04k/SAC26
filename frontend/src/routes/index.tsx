@@ -1,22 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown, Download, ExternalLink, Loader2, Pause, Play, RotateCcw, Volume2 } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { api } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
-import { phenomena, type PlaySnapshot, type Spec } from '../lib/audio/phenomena'
+import { phenomena } from '../lib/audio/phenomena'
 import { mechanism } from '../lib/audio/mechanism'
 import { useUI } from '../lib/store'
 import { flyDisc } from '../lib/discFlight'
-import type { Dataset } from '../lib/types'
 import { Cabinet } from '../components/Cabinet'
 import { DiscSelector } from '../components/DiscSelector'
 import { Intro } from '../components/Intro'
 import { NowPlaying } from '../components/NowPlaying'
-import { FrameScanner } from '../components/FrameScanner'
 import { Girl } from '../components/Girl'
 import { sceneFor } from '../lib/world'
 import { LoadingDoor } from '../components/LoadingDoor'
-import { Spectrum } from '../components/Spectrum'
 
 const MODEL_WORD: Record<string, string> = {
   wind: 'Airflow',
@@ -29,272 +26,46 @@ const MODEL_WORD: Record<string, string> = {
   space: 'Deep space',
 }
 
-const fmt = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`
-
-/** Everything the cabinet can't show once the needle is down. */
-function Deck({
-  dataset,
-  spec,
-  loading,
-  onClose,
-  datasets,
-  onPick,
-}: {
-  dataset: Dataset
-  spec: Spec | null
-  loading: boolean
-  onClose: () => void
-  datasets: Dataset[]
-  onPick: (id: string) => void
-}) {
-  const { isPlaying, setPlaying, volume, setVolume, announce } = useUI()
-  const [snap, setSnap] = useState<PlaySnapshot>({ playing: false, position: 0, duration: 0, level: 0 })
-  const [energy, setEnergy] = useState<Float32Array | null>(null)
+/**
+ * The prompt to keep going.
+ *
+ * The cabinet fills the first screen, so the analysis below it is invisible
+ * until you scroll. This strip is centred under the cabinet, states what is
+ * down there in plain words, and retires itself the moment you scroll — on
+ * phones and desktops alike.
+ */
+function ScrollPrompt() {
+  const [gone, setGone] = useState(false)
 
   useEffect(() => {
-    phenomena.onSnapshot = setSnap
-    phenomena.onEnergy = (v) => setEnergy(v)
-    phenomena.onEnded = () => {
-      setPlaying(false)
-      mechanism.lift()
-    }
-    return () => {
-      phenomena.onSnapshot = null
-      phenomena.onEnergy = null
-      phenomena.onEnded = null
-    }
-  }, [setPlaying])
-
-  useEffect(() => {
-    phenomena.setVolume(volume)
-  }, [volume])
-
-  const progress = snap.duration ? snap.position / snap.duration : 0
-
-  const toggle = useCallback(async () => {
-    if (!spec) return
-    if (isPlaying) {
-      phenomena.stop()
-      setPlaying(false)
-      announce('Needle lifted.')
-      return
-    }
-    await phenomena.init()
-    if (phenomena.getSpec() !== spec) phenomena.load(spec)
-    await phenomena.play(0)
-    setPlaying(true)
-    announce(`${dataset.short}. ${spec.explain}`)
-  }, [spec, isPlaying, dataset, setPlaying, announce])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement
-      if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(el.tagName)) return
-      if (e.code === 'Space') {
-        e.preventDefault()
-        void toggle()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [toggle])
+    const onScroll = () => setGone(window.scrollY > 80)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   return (
-    <section className="open-door mx-auto mt-4 w-full max-w-[1180px]" aria-label="Analysis deck">
-      <div className="tt-paper relative overflow-hidden p-3 sm:p-4">
-        {/* the deck's little brass rail */}
-        <div className="pointer-events-none absolute inset-x-6 top-0 h-[3px] rounded-b bg-gradient-to-r from-transparent via-[#d8b077] to-transparent" />
-
-        <header className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-[#7c6144cc]">
-              side A · track {String(datasets.findIndex((d) => d.id === dataset.id) + 1).padStart(2, '0')} ·{' '}
-              {MODEL_WORD[dataset.model] ?? dataset.model}
-            </p>
-            <h2 className="mt-0.5 font-display text-xl font-semibold leading-tight text-ink sm:text-2xl">
-              {dataset.short}
-            </h2>
-            <p className="mt-0.5 text-[11.5px] font-semibold text-ink-soft">
-              {dataset.title} · {dataset.year_range} · {dataset.sensor}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="tt-chip shrink-0 px-3 py-1.5 text-[11px] font-bold text-ink transition hover:bg-[#f6e3ba]"
-          >
-            close the deck
-          </button>
-        </header>
-
-        <div className="grid gap-3 lg:grid-cols-[1.3fr_1fr]">
-          <div className="flex flex-col gap-2.5">
-            {spec ? (
-              <FrameScanner
-                imageUrl={api.framePngUrl(dataset.id)}
-                cells={spec.grid.cells}
-                cols={spec.grid.cols}
-                rows={spec.grid.rows}
-                model={spec.model}
-                energy={energy}
-              />
-            ) : (
-              <div className="flex aspect-[16/9] items-center justify-center rounded-[18px] border-2 border-[#d8b077] bg-[#3a2716]">
-                <p className="flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-[0.14em] text-[#ffe9b8cc]">
-                  {loading && <Loader2 size={13} className="animate-spin" />}
-                  {loading ? 'measuring the frame…' : 'no measurement yet'}
-                </p>
-              </div>
-            )}
-
-            <div className="tt-chip mt-2 flex items-center gap-2.5 px-2.5 py-2">
-              <button
-                onClick={() => void toggle()}
-                disabled={!spec}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#a9773d] bg-gradient-to-b from-[#ffe9b8] to-[#e0a95f] text-ink shadow-[0_2px_0_#a9773d] transition active:translate-y-[1px] active:shadow-none disabled:opacity-40"
-              >
-                {isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" className="translate-x-[1px]" />}
-              </button>
-              <div className="min-w-0 flex-1">
-                <div className="relative h-2 overflow-hidden rounded-full bg-[#e6d0a4] shadow-[0_1px_2px_rgba(90,60,20,.35)_inset]">
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#d98b2b] to-[#f7c96b]"
-                    style={{ width: `${progress * 100}%` }}
-                  />
-                  <div
-                    className="absolute inset-y-0 w-[3px] rounded-full bg-[#4a3521b2]"
-                    style={{ left: `calc(${progress * 100}% - 1.5px)` }}
-                  />
-                </div>
-                <p className="mt-1 font-mono text-[9.5px] font-semibold text-ink-soft">
-                  {fmt(snap.position)} / {fmt(snap.duration || (spec?.duration ?? 0))} · level{' '}
-                  {snap.level.toFixed(2)}
-                </p>
-              </div>
-              <Volume2 size={13} className="shrink-0 text-ink-soft" />
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={volume}
-                onChange={(e) => setVolume(Number(e.target.value))}
-                aria-label="Volume"
-                className="h-9 w-16 shrink-0 cursor-pointer accent-[#c9832b]"
-              />
-              <button
-                onClick={() => {
-                  phenomena.stop()
-                  void phenomena.play(0)
-                  setPlaying(true)
-                }}
-                disabled={!spec}
-                aria-label="Restart"
-                className="shrink-0 rounded-full p-1.5 text-ink-soft transition hover:text-ink disabled:opacity-30"
-              >
-                <RotateCcw size={13} />
-              </button>
-              <a
-                href={api.renderUrl(dataset.id)}
-                download
-                aria-label="Download the WAV render of this track"
-                className="flex shrink-0 items-center gap-1 rounded-full border-2 border-[#d8b077] bg-[#fff8e8] px-2 py-1 text-[10px] font-bold text-ink transition hover:bg-[#f6e3ba]"
-              >
-                <Download size={10} /> WAV
-              </a>
-            </div>
-
-            <div className="h-24 rounded-[16px] border-2 border-[#d8b077] bg-[#3a2716] p-1.5">
-              <Spectrum accent="#ffcf7d" />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2.5">
-            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
-              <p className="font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
-                how this frame becomes sound
-              </p>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-[#3a2a18d9]">
-                {spec?.explain ?? (loading ? 'The engine is measuring the frame…' : dataset.description)}
-              </p>
-            </div>
-
-            {spec && (
-              <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
-                <p className="font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
-                  what is mapped to what
-                </p>
-                <p className="mt-1 text-[10.5px] font-semibold leading-snug text-[#3a2a18cc]">
-                  {spec.mapping}
-                </p>
-                <p className="mt-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#8a5a1c]">
-                  {spec.layers.length} physical layers
-                </p>
-              </div>
-            )}
-
-            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
-              <p className="font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
-                provenance
-              </p>
-              <p className="mt-1 text-[10.5px] leading-relaxed text-[#3a2a18cc]">{dataset.credit}</p>
-              <p className="mt-0.5 text-[10px] text-ink-soft">{dataset.source_frame}</p>
-              <a
-                href={dataset.svs_url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-[#a2641f] hover:text-ink"
-              >
-                <ExternalLink size={10} /> {dataset.svs_id ? `NASA SVS ${dataset.svs_id}` : 'source page'}
-              </a>
-            </div>
-
-            <div className="rounded-[16px] border-2 border-[#d8b077] bg-[#fff8e8d9] p-2.5">
-              <p className="mb-1 font-display text-[9.5px] font-bold uppercase tracking-[0.2em] text-ink-soft">
-                pull another disc
-              </p>
-              <ul className="grid grid-cols-2 gap-1">
-                {datasets
-                  .filter((d) => d.id !== dataset.id)
-                  .slice(0, 6)
-                  .map((d) => (
-                    <li key={d.id}>
-                      <button
-                        onClick={() => onPick(d.id)}
-                        className="flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left transition hover:bg-[#f6e3ba]"
-                      >
-                        <img
-                          src={api.frameUrl(d.id)}
-                          alt=""
-                          className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-[#a9773d]"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[10px] font-bold text-ink">{d.short}</span>
-                          <span className="block truncate text-[8px] uppercase tracking-wider text-ink-soft">
-                            {MODEL_WORD[d.model] ?? d.model}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t-2 border-dashed border-[#d8b077b2] pt-2">
-          <p className="text-[10px] font-semibold leading-relaxed text-[#7c6144d9]">
-            {dataset.accessibility}
-          </p>
-          <button
-            onClick={onClose}
-            className="tt-chip px-2.5 py-1 text-[10.5px] font-bold text-ink transition hover:bg-[#f6e3ba]"
-          >
-            back to the cabinet
-          </button>
-        </div>
-      </div>
-    </section>
+    <a
+      href="#now-playing"
+      onClick={(e) => {
+        e.preventDefault()
+        document.getElementById('now-playing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }}
+      aria-label="Scroll down for the frame, the measurements and the frame-by-frame analysis"
+      className={`pointer-events-auto absolute inset-x-0 bottom-3 z-30 mx-auto flex w-fit max-w-[calc(100%-16px)] items-center gap-2 rounded-full border border-[#ffe9b86b] bg-[#120e08d9] px-3 py-2 text-[#ffe9b8] shadow-[0_10px_24px_-10px_rgba(0,0,0,.95)] backdrop-blur-sm transition-all duration-300 hover:bg-[#120e08] sm:bottom-4 sm:gap-2.5 sm:px-4 ${
+        gone ? 'pointer-events-none translate-y-3 opacity-0' : 'scroll-hint opacity-100'
+      }`}
+    >
+      <span className="flex flex-col text-left">
+        <span className="font-display text-[9px] font-bold uppercase leading-tight tracking-[0.16em] text-[#ffd79a]">
+          scroll for more
+        </span>
+        <span className="text-[10px] font-semibold leading-tight text-[#ffe9b8d9]">
+          the frame · 72 measured cells · every frame in the series
+        </span>
+      </span>
+      <ChevronDown size={16} className="shrink-0 animate-bounce text-[#ffd79a]" />
+    </a>
   )
 }
 
@@ -315,7 +86,6 @@ export function JukeboxPage() {
     level: storeLevel,
   } = useUI()
 
-  const [deckOpen, setDeckOpen] = useState(false)
   const [spectrum, setSpectrum] = useState<number[]>([])
   const [progress, setProgress] = useState(0)
   const [flying, setFlying] = useState(false)
@@ -408,7 +178,6 @@ export function JukeboxPage() {
       phenomena.stop()
       setPlaying(false)
       setPowered(false)
-      setDeckOpen(false)
       announce('Cabinet off.')
     }
   }, [powered, setPowered, setStarted, setPlaying, announce])
@@ -449,6 +218,11 @@ export function JukeboxPage() {
           })
           await phenomena.init()
           phenomena.load(next)
+          // the disc has landed: bring its real frame and measurement sheet into
+          // view, which is where the sound is explained
+          if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            document.getElementById('now-playing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
           mechanism.needle()
           await phenomena.play(0)
           setPlaying(true)
@@ -511,7 +285,7 @@ export function JukeboxPage() {
       */}
       <section
         aria-label="The jukebox"
-        className="stage-full relative flex w-full items-end justify-center overflow-hidden pb-[max(1vh,6px)]"
+        className="stage-full relative flex w-full items-end justify-center overflow-hidden pb-[68px] pt-2 sm:pt-3"
       >
         {/* the title column: never overlaps the cabinet */}
         <div className="pointer-events-none absolute left-3 top-3 z-30 w-[clamp(206px,19vw,282px)] sm:left-5 sm:top-5">
@@ -537,7 +311,7 @@ export function JukeboxPage() {
           )}
         </div>
 
-        <div className="relative z-10" style={{ width: 'min(84vw, 596px, calc((100svh - 146px) * 0.8539))' }}>
+        <div className="relative z-10" style={{ width: 'min(80vw, 596px, calc((100svh - 208px) * 0.854))' }}>
           <Cabinet
             datasets={datasets}
             selectedId={selectedId}
@@ -593,14 +367,9 @@ export function JukeboxPage() {
           discRefs={discRefs}
         />
 
-        {/* the prompt to scroll, in the right margin where nothing else lives */}
-        <a
-          href="#now-playing"
-          className="pointer-events-auto absolute bottom-[9%] right-4 z-30 hidden whitespace-nowrap rounded-full border border-[#ffe9b86b] bg-[#120e08cc] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffe9b8] backdrop-blur-sm transition hover:bg-[#120e08] lg:block"
-        >
-          the frame &amp; the analysis
-          <ChevronDown size={11} className="ml-1 inline animate-bounce" />
-        </a>
+        {/* the prompt to scroll: says exactly what is below, on every screen */}
+        <ScrollPrompt />
+
       </section>
 
       {/* everything below the fold: the real frame, the measurements, the series */}
@@ -614,27 +383,6 @@ export function JukeboxPage() {
         datasets={datasets}
       />
 
-      {/* the deck: the full measurement sheet, over the world */}
-      <div
-        className={`fixed inset-x-0 bottom-0 z-40 overflow-y-auto transition-transform duration-500 ${
-          deckOpen ? 'translate-y-0' : 'pointer-events-none translate-y-full'
-        }`}
-        style={{ maxHeight: '82svh' }}
-        aria-hidden={!deckOpen}
-      >
-        {deckOpen && (
-          <div className="mx-auto w-full max-w-[1180px] px-2 pb-2">
-            <Deck
-              dataset={dataset}
-              spec={spec}
-              loading={specQuery.isLoading}
-              datasets={datasets}
-              onClose={() => setDeckOpen(false)}
-              onPick={(id) => void chooseDisc(id, true)}
-            />
-          </div>
-        )}
-      </div>
     </div>
   )
 }

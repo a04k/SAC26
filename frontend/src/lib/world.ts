@@ -40,7 +40,6 @@ export interface Scene {
   /** how strongly the cabinet's own glow lights the ground */
   glow: string
   vignette: string
-  grass: [string, string]
   girl: { coat: string; hair: string; trim: string; hat: string | null }
 }
 
@@ -76,7 +75,6 @@ export const SCENES: Record<SceneKind, Scene> = {
     fireflies: 0,
     glow: 'rgba(255,190,110,.55)',
     vignette: 'rgba(74,53,33,.30)',
-    grass: ['#5f7f4e', '#a7c07a'],
     girl: GIRL,
   },
   storm: {
@@ -85,7 +83,7 @@ export const SCENES: Record<SceneKind, Scene> = {
     dark: true,
     horizon: 0.55,
     label: 'Ghibli storm',
-    weather: 'hurricane — rain bending the grass',
+    weather: 'hurricane — rain coming in sideways',
     sky: ['#4d6f78', '#5d7f84', '#8f9d92', '#b3ac95'],
     sun: { x: 66, y: 40, color: '#dce7de', size: 40, strength: 0.35 },
     hills: ['#6f8a74', '#5c7867', '#465f54'],
@@ -103,7 +101,6 @@ export const SCENES: Record<SceneKind, Scene> = {
     fireflies: 0,
     glow: 'rgba(255,176,96,.5)',
     vignette: 'rgba(22,34,32,.52)',
-    grass: ['#42604a', '#7d9568'],
     girl: { coat: '#f2c84b', hair: '#3b2a2a', trim: '#dfe6e2', hat: '#f2c84b' },
   },
   night: {
@@ -130,7 +127,6 @@ export const SCENES: Record<SceneKind, Scene> = {
     fireflies: 18,
     glow: 'rgba(255,190,110,.75)',
     vignette: 'rgba(8,14,24,.6)',
-    grass: ['#243a34', '#4b6653'],
     girl: GIRL,
   },
   aurora: {
@@ -157,7 +153,6 @@ export const SCENES: Record<SceneKind, Scene> = {
     fireflies: 0,
     glow: 'rgba(190,255,220,.6)',
     vignette: 'rgba(6,16,26,.58)',
-    grass: ['#1f3a38', '#3f6157'],
     girl: { coat: '#5f7f9e', hair: '#2c2432', trim: '#e8f6f0', hat: '#cfd9df' },
   },
   fire: {
@@ -184,7 +179,6 @@ export const SCENES: Record<SceneKind, Scene> = {
     fireflies: 0,
     glow: 'rgba(255,150,60,.7)',
     vignette: 'rgba(70,44,22,.46)',
-    grass: ['#84714c', '#b8a171'],
     girl: GIRL,
   },
   space: {
@@ -211,7 +205,6 @@ export const SCENES: Record<SceneKind, Scene> = {
     fireflies: 0,
     glow: 'rgba(190,200,255,.5)',
     vignette: 'rgba(6,8,20,.62)',
-    grass: ['#1b1f3a', '#343a63'],
     girl: GIRL,
   },
 }

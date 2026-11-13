@@ -2,8 +2,20 @@ import { useMemo, useState } from 'react'
 import { Download, ExternalLink, Loader2, Pause, Play, Volume2 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Dataset } from '../lib/types'
-import type { Spec } from '../lib/audio/phenomena'
+import type { Spec, SpecCell } from '../lib/audio/phenomena'
 import { Spectrum } from './Spectrum'
+
+/** the one measured quantity each physical model is driven by */
+const SIGNAL: Record<string, keyof SpecCell> = {
+  wind: 'turbulence',
+  storm: 'white',
+  fire: 'hot',
+  ocean: 'water',
+  city: 'rel',
+  canopy: 'green',
+  plume: 'white',
+  space: 'brightness',
+}
 
 /**
  * What scrolls up under the cabinet.
@@ -36,8 +48,15 @@ export function NowPlaying({
   const series = dataset.series ?? []
   const cells = spec?.grid.cells ?? []
 
+  const signal = SIGNAL[spec?.model ?? dataset.model] ?? 'brightness'
   const topCells = useMemo(
-    () => [...cells].sort((a, b) => b.brightness - a.brightness).slice(0, 3),
+    () =>
+      [...cells]
+        .sort(
+          (a, b) =>
+            (b[signal] as number) - (a[signal] as number) || b.brightness - a.brightness,
+        )
+        .slice(0, 4),
     [cells],
   )
 
@@ -170,29 +189,65 @@ export function NowPlaying({
               what the grid measured
             </p>
             <div className="mt-1.5 h-16 rounded-lg border border-[#d8b077]/70 bg-[#3a2716] p-1.5">
-              <Spectrum accent="#ffcf7d" />
+              <Spectrum
+                accent="#ffcf7d"
+                label={playing ? 'live output spectrum' : 'no signal — the transport is stopped'}
+              />
             </div>
-            <ul className="mt-2 flex flex-col gap-1">
-              {(topCells.length ? topCells : []).map((c, i) => (
-                <li key={i} className="flex items-center gap-2 text-[10px] font-semibold text-[#3a2a18cc]">
-                  <span className="w-14 shrink-0 font-mono text-[9px] text-[#8a5a1c]">
-                    r{c.row + 1} c{c.col + 1}
-                  </span>
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#c49a5d]/45">
-                    <span
-                      className="block h-full rounded-full bg-[#8a5a1c]"
-                      style={{ width: `${Math.round(c.brightness * 100)}%` }}
-                    />
-                  </span>
-                  <span className="w-8 shrink-0 text-right font-mono text-[9px]">
-                    {Math.round(c.brightness * 99)}
-                  </span>
-                </li>
-              ))}
-              {!topCells.length && (
-                <li className="text-[10px] font-semibold text-[#3a2a18a6]">the engine is measuring the frame…</li>
-              )}
-            </ul>
+            {spec ? (
+              <>
+                <div className="mt-2 grid grid-cols-4 gap-x-2 gap-y-1 border-t border-[#d8b077]/70 pt-2">
+                  {[
+                    ['brightness', spec.frame_stats.brightness],
+                    ['texture', spec.frame_stats.turbulence],
+                    ['saturation', spec.frame_stats.saturation],
+                    ['hot px', spec.frame_stats.hot],
+                    ['green', spec.frame_stats.green],
+                    ['water', spec.frame_stats.water],
+                    ['white', spec.frame_stats.white],
+                    ['dark', spec.frame_stats.dark],
+                  ].map(([k, v]) => (
+                    <div key={String(k)} className="flex flex-col">
+                      <span className="font-mono text-[7.5px] uppercase tracking-[0.1em] text-[#8a5a1c]">
+                        {k}
+                      </span>
+                      <span className="font-mono text-[10px] font-bold leading-none text-[#3a2a18d9]">
+                        {Number(v).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="mt-2 font-display text-[8.5px] font-bold uppercase tracking-[0.16em] text-[#8a5a1c]">
+                  loudest cells · {String(signal)} <span className="normal-case">(and measured brightness)</span>
+                </p>
+                <ul className="mt-1 flex flex-col gap-1">
+                  {topCells.map((c, i) => (
+                    <li key={i} className="flex items-center gap-2 text-[10px] font-semibold text-[#3a2a18cc]">
+                      <span className="w-14 shrink-0 font-mono text-[9px] text-[#8a5a1c]">
+                        r{c.row + 1} c{c.col + 1}
+                      </span>
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#c49a5d]/45">
+                        <span
+                          className="block h-full rounded-full bg-[#8a5a1c]"
+                          style={{ width: `${Math.round((c[signal] as number) * 100)}%` }}
+                        />
+                      </span>
+                      <span className="w-16 shrink-0 text-right font-mono text-[9px] leading-tight">
+                        {(c[signal] as number).toFixed(2)}
+                        <span className="ml-1 text-[#8a5a1c]">
+                          {Math.round(c.brightness * 99)}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="mt-2 text-[10px] font-semibold text-[#3a2a18a6]">
+                the engine is measuring the frame…
+              </p>
+            )}
           </div>
 
           {/* ---------------- the frame series ---------------- */}

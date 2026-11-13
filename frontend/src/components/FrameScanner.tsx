@@ -5,13 +5,15 @@ import type { SpecCell } from '../lib/audio/phenomena'
  * The measurement view.
  *
  * The NASA frame is shown untouched, with its real 6 × 12 measurement grid laid
- * over it. Each cell glows with the quantity that is *currently audible* for
- * the selected physical model — wind reads turbulence, fire reads hot pixels,
- * a storm reads cloud brightness — or with the live energy of the layer playing
- * at that moment. Hover a cell to read the numbers the synthesizer used.
+ * over it. Each cell glows with the quantity the selected physical model is
+ * actually driven by — wind reads turbulence, fire reads hot pixels, a storm
+ * reads cloud brightness — or with the live energy of the layer the player is
+ * sounding at that moment. Both modes are read from real numbers; hover a cell
+ * to see them.
  *
- * There is deliberately no scan line: the sound is not a sweep of the picture,
- * it is the picture's measured content driving a physical model.
+ * There is deliberately no scan line and no decorative motion: the sound is not
+ * a sweep of the picture, it is the picture's measured content driving a
+ * physical model, and nothing on this panel is drawn unless it was measured.
  */
 const MODEL_SIGNAL: Record<string, { key: keyof SpecCell; label: string }> = {
   wind: { key: 'turbulence', label: 'turbulence' },

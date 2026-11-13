@@ -254,13 +254,11 @@ export function ScanPage() {
                 <p className="mt-1.5 text-[10.5px] font-semibold leading-relaxed text-[#3a2a18cc]">{result.explain}</p>
               </div>
 
-              <div className="relative h-20 rounded-[16px] border-2 border-[#d8b077] bg-[#3a2716] p-1.5">
-                <Spectrum accent="#ffcf7d" />
-                {!playing && (
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center font-display text-[9px] font-bold uppercase tracking-[0.2em] text-[#ffe9b866]">
-                    press play to hear this frame
-                  </span>
-                )}
+              <div className="h-20 rounded-[16px] border-2 border-[#d8b077] bg-[#3a2716] p-1.5">
+                <Spectrum
+                  accent="#ffcf7d"
+                  label={playing ? 'live output' : 'press play to hear this frame'}
+                />
               </div>
 
               <div className="tt-paper p-2.5">

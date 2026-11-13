@@ -8,9 +8,10 @@ import type { Scene } from '../lib/world'
  * deep space, golden meadow), topped with live weather that is drawn rather than
  * painted: rain with individual streaks and splash rings, multi-branch
  * lightning, drifting cumulus with lit bellies, aurora curtains, ash and pollen
- * motes, fireflies, and the warm spill of the cabinet's own light onto the
- * grass. Everything is a layer of the same scene, so switching discs changes the
- * world you are standing in.
+ * motes, fireflies, and the warm spill of the cabinet's own light. Everything is
+ * a layer of the same scene, so switching discs changes the world you are
+ * standing in. There is no overlaid foreground strip: the cabinet stands
+ * directly on the painted ground.
  */
 export function World({ scene, powered, level }: { scene: Scene; powered: boolean; level: number }) {
   const [loaded, setLoaded] = useState<string | null>(null)
@@ -73,7 +74,7 @@ export function World({ scene, powered, level }: { scene: Scene; powered: boolea
       {/* ---- fireflies ---- */}
       {scene.fireflies > 0 && <Fireflies count={scene.fireflies} />}
 
-      {/* ---- the cabinet's light on the grass ---- */}
+      {/* ---- the cabinet's light on the ground ---- */}
       <div
         className="absolute inset-x-0 bottom-0 h-[46%] transition-opacity duration-700"
         style={{
@@ -225,7 +226,7 @@ function Rain({ count }: { count: number }) {
           }}
         />
       ))}
-      {/* splash rings where the rain lands in the grass */}
+      {/* splash rings where the rain lands */}
       {splashes.map((s, i) => (
         <span
           key={`s${i}`}
@@ -389,81 +390,4 @@ function Fireflies({ count }: { count: number }) {
       })}
     </div>
   )
-}
-
-/**
- * The nearest blades of grass, drawn *over* the cabinet's plinth and the girl's
- * feet so both look planted in the meadow instead of pasted onto it.
- */
-export function ForegroundGrass({ scene }: { scene: Scene }) {
-  // the grass belongs to the stage; once you scroll into the analysis it steps
-  // out of the way instead of sitting on top of the copy
-  const [scrolled, setScrolled] = useState(false)
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 120)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  return (
-    <div
-      className={`pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[13vh] overflow-hidden transition-opacity duration-500 ${
-        scrolled ? 'opacity-0' : 'opacity-100'
-      }`}
-      aria-hidden
-    >
-      <svg
-        viewBox="0 0 1440 150"
-        preserveAspectRatio="none"
-        className="h-full w-full"
-        style={{
-          animation: scene.rain ? 'grass-wind 2.2s ease-in-out infinite' : 'grass-wind 7s ease-in-out infinite',
-          transformOrigin: '50% 100%',
-        }}
-      >
-        <defs>
-          <linearGradient id="bladeFront" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor={darken(scene.grass[0], -22)} />
-            <stop offset="100%" stopColor={scene.grass[1]} />
-          </linearGradient>
-        </defs>
-        <g fill="url(#bladeFront)" opacity="0.96" style={{ filter: 'drop-shadow(0 -2px 5px rgba(0,0,0,.3))' }}>
-          {Array.from({ length: 170 }, (_, i) => {
-            const x = (i / 170) * 1440 + ((i * 29) % 17)
-            const h = 34 + ((i * 47) % 84)
-            const w = 4 + ((i * 13) % 7)
-            return (
-              <path
-                key={i}
-                d={`M${x} 150 C ${x - w} ${150 - h * 0.55}, ${x + w} ${150 - h * 0.8}, ${x + w * 0.35} ${
-                  150 - h
-                } C ${x + w * 1.3} ${150 - h * 0.5}, ${x + w * 1.5} ${150 - h * 0.2}, ${x + w * 1.15} 150 Z`}
-              />
-            )
-          })}
-        </g>
-        {scene.kind === 'meadow' &&
-          Array.from({ length: 26 }, (_, i) => {
-            const x = (i / 26) * 1440 + ((i * 61) % 40)
-            const y = 126 - ((i * 37) % 26)
-            return (
-              <g key={`fl${i}`}>
-                <path d={`M${x} ${y} v14`} stroke="#7f9c62" strokeWidth="1.6" />
-                <circle cx={x} cy={y} r={3.6} fill="#fff6dd" />
-                <circle cx={x} cy={y} r={1.5} fill="#f5c840" />
-              </g>
-            )
-          })}
-      </svg>
-    </div>
-  )
-}
-
-function darken(hex: string, amount: number) {
-  const n = parseInt(hex.replace('#', ''), 16)
-  const r = Math.max(0, ((n >> 16) & 255) + amount)
-  const g = Math.max(0, ((n >> 8) & 255) + amount)
-  const b = Math.max(0, (n & 255) + amount)
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
 }

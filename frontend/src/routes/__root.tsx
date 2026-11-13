@@ -6,7 +6,7 @@ import { useUI } from '../lib/store'
 import { mechanism } from '../lib/audio/mechanism'
 import { api } from '../lib/api'
 import { sceneFor } from '../lib/world'
-import { ForegroundGrass, World } from '../components/World'
+import { World } from '../components/World'
 
 /**
  * There is one background on this site: the world the cabinet stands in. The
@@ -179,8 +179,6 @@ export function RootLayout() {
       <main id="main" className="relative z-10 flex-1">
         <Outlet />
       </main>
-
-      {pathname === '/' && <ForegroundGrass scene={scene} />}
 
       <footer
         className={`pointer-events-none relative z-20 px-4 pb-1 pt-0.5 text-center text-[9px] font-semibold leading-tight ${

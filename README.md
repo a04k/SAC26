@@ -52,7 +52,8 @@ Vite proxies `/api` to the backend, so no environment variables are needed.
   scenes — meadow, storm, night, aurora, fire, deep space — with live weather on
   top: rain as individual streaks with splash rings, multi-branch lightning on
   Poisson timing, drifting cumulus, aurora curtains, pollen, ash, fireflies and
-  the cabinet's own light spilling onto the grass.
+  the cabinet's own light spilling onto the painted ground. Nothing is drawn over
+  the foreground: the cabinet stands directly on the scene.
 - **Off and on are different states.** Unlit glass, a cold dome and a dim card;
   throwing the switch lights the tubes (rising bubbles and a level column driven
   by the live analyser), warms the card, spins the record in the dome, and throws
@@ -66,10 +67,16 @@ Vite proxies `/api` to the backend, so no environment variables are needed.
   into the cabinet, then drops the needle.
 - **Every control is real**: brass power lever, brass volume fader, the speaker's
   amber jewel as play/pause, and the "TERRA TUNES" plate as the label.
-- **Scrolling reveals the record.** Under the stage: the real frame with its 6 × 12
+- **Scrolling reveals the record.** A breathing "scroll for more" strip under the
+  cabinet says what is below, and landing a disc snaps you down to it. Under the
+  stage: the real frame with its 6 × 12
   measurement grid drawn on it, the mapping and layer count for that record, its
   frame series (night lights 2012, 2023, and the change), the credit line, WAV
   download, and the scanner for your own frames.
+- **Nothing on screen is invented.** The only imagery is NASA's own frames and the
+  credited painted scenery; every meter is read from the live analyser or from the
+  measurement grid, and with the transport stopped the spectrum says so instead of
+  drawing a decorative idle shape.
 
 All overlay geometry lives in `frontend/src/lib/geometry.ts` as fractions of the
 cut-out sprite, measured from the artwork itself with OpenCV, so the glass, card,
