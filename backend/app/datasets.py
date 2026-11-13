@@ -1,11 +1,12 @@
-"""Catalog of NASA Earth Information Center (EIC) datasets used as jukebox tracks.
+"""Catalog of Earth Information Center (EIC) datasets used as jukebox tracks.
 
-Each entry pairs an EIC visualization (Scientific Visualization Studio, SVS)
-with a sonification recipe: musical scale, instrument family and the
-visual -> audio mapping used by the engine.
+Every entry names the real SVS product it comes from, the exact source frame
+bundled in `assets/frames/`, its credit line, and the *measured* sonification
+mapping (no musical interpretation). `series` lists real frames that form a
+time series, when the published product provides one.
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 
 @dataclass(frozen=True)
@@ -16,44 +17,49 @@ class Dataset:
     svs_id: str
     svs_url: str
     year_range: str
+    source_frame: str
+    credit: str
+    dataset_name: str
+    sensor: str
     description: str
-    story: str
-    palette: list[str]
-    instrument: str
-    instrument_name: str
-    scale: str
-    scale_name: str
-    base_tempo: int
-    mapping: dict[str, str]
     accessibility: str
+    series: tuple[tuple[str, str], ...] = ()
+    element: str = "earth"   # storms | wind | fire | ice | ocean | land
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        d["series"] = [{"asset": a, "label": l} for a, l in self.series]
+        return d
 
 
 DATASETS: list[Dataset] = [
     Dataset(
         id="night-lights",
-        title="Change in Night Lights between 2012 and 2023",
+        title="Change in Night Lights between 2012 and 2023 — EIC Version",
         short="Night Lights",
         svs_id="5313",
         svs_url="https://svs.gsfc.nasa.gov/5313/",
         year_range="2012–2023",
-        description="Urban illumination across the globe, from near-dark terrain to brilliant city clusters.",
-        story="Every bright pixel is a human settlement. The melody follows the brightest clusters — a lullaby sung by cities.",
-        palette=["#ffd27a", "#ff9d3c", "#1a2340", "#fff3d6"],
-        instrument="pad-pluck",
-        instrument_name="Warm pad + pluck",
-        scale="major-pentatonic",
-        scale_name="Major Pentatonic",
-        base_tempo=72,
-        mapping={
-            "Mean luminance": "Pad brightness & note velocity",
-            "Bright clusters (top luminance)": "Melody notes",
-            "Edge density": "Rhythm density",
-            "Hue warmth": "Filter warmth",
-        },
-        accessibility="A dark planet dotted with warm golden clusters of light. The sound is a gentle, warm pad with soft plucked notes that follow the brightest cities.",
+        source_frame="Black Marble annual nighttime-lights map, 2023 (EIC flat map)",
+        credit="NASA SVS / NASA Earth Observatory (Joshua Stevens), Suomi NPP VIIRS Black Marble",
+        dataset_name="Black Marble: Next Generation",
+        sensor="Suomi NPP · VIIRS",
+        description=(
+            "Annual average nighttime lights for 2023, equirectangular. Bright clusters are "
+            "cities; the dark ocean and unlit land stay near black and near silence."
+        ),
+        accessibility=(
+            "A black map of the world. Golden clusters mark cities — eastern China, India, "
+            "Europe, the US east coast glow brightest. The scan moves from the Arctic down to "
+            "Antarctica; each row of the map becomes one sustained tone, bright rows high and "
+            "loud, dark ocean rows low and nearly silent."
+        ),
+        series=(
+            ("night-lights-2012", "2012"),
+            ("night-lights", "2023 average"),
+            ("night-lights-2023", "2012→2023 change"),
+        ),
+        element="land",
     ),
     Dataset(
         id="ocean-currents",
@@ -62,21 +68,20 @@ DATASETS: list[Dataset] = [
         svs_id="3912",
         svs_url="https://svs.gsfc.nasa.gov/3912/",
         year_range="Animation",
-        description="Fluid movement of ocean currents alongside thermal gradients across the world's seas.",
-        story="Currents never stop. Flowing sine arpeggios trace the swirling water, brightening where the sea is warm.",
-        palette=["#22d3ee", "#0ea5e9", "#164e63", "#a5f3fc"],
-        instrument="sine-arp",
-        instrument_name="Flowing sine arpeggio",
-        scale="lydian",
-        scale_name="Lydian",
-        base_tempo=96,
-        mapping={
-            "Spatial luminance grid": "Stereo pan & arpeggio order",
-            "Mean luminance": "Arpeggio brightness",
-            "Edge density": "Flow speed (tempo)",
-            "FFT high-frequency band": "Shimmer layer",
-        },
-        accessibility="Deep blue oceans with bright cyan swirling currents. The sound is a flowing, watery arpeggio that moves from side to side like the currents.",
+        source_frame="Global sea surface currents coloured by temperature",
+        credit="NASA SVS / MITgcm ECCO2 state estimate (NASA/JPL) with Scientific Visualization Studio",
+        dataset_name="ECCO2 ocean state estimate",
+        sensor="Model · MITgcm ECCO2",
+        description=(
+            "Sea surface temperature as colour with white current streamlines. Warm tropics "
+            "sit bright orange/red, cold high latitudes deep blue."
+        ),
+        accessibility=(
+            "A world ocean map in bands of blue to red with fine white current lines. The "
+            "warm equatorial rows are high and bright, polar rows low and quiet, and the "
+            "white streamlines add a steady hiss wherever the currents are dense."
+        ),
+        element="ocean",
     ),
     Dataset(
         id="aerosols",
@@ -85,21 +90,20 @@ DATASETS: list[Dataset] = [
         svs_id="5669",
         svs_url="https://svs.gsfc.nasa.gov/5669/",
         year_range="Animation",
-        description="Smoke, dust and other atmospheric particles tracked by type across the planet.",
-        story="Different particle types get different textures — dust hisses, smoke breathes, sea salt sparkles. A multi-track atmosphere.",
-        palette=["#fb923c", "#a8a29e", "#60a5fa", "#fde68a"],
-        instrument="noise-texture",
-        instrument_name="Noise textures",
-        scale="dorian",
-        scale_name="Dorian",
-        base_tempo=84,
-        mapping={
-            "Colorfulness": "Reverb & space",
-            "Saturation": "Noise filter cutoff",
-            "Edge density": "Texture density",
-            "Dominant colors": "Chord tones",
-        },
-        accessibility="Clouds of orange dust, grey smoke and blue particles drifting over the planet. The sound is airy and textured, like wind through different kinds of clouds.",
+        source_frame="GEOS aerosol optical depth by species (dust, smoke, sea salt, sulfate)",
+        credit="NASA SVS / NASA GMAO GEOS composition model",
+        dataset_name="GEOS-FP aerosol fields",
+        sensor="Model · GEOS-5 / GEOS-FP",
+        description=(
+            "Dust, smoke, sea salt and sulfate plumes coloured by species. Colour hue tells "
+            "you which aerosol dominates a region, and it drives stereo position here."
+        ),
+        accessibility=(
+            "Swirling plumes of orange dust, white smoke and green sulfate over a grey world. "
+            "Tone pitch follows brightness; the panning follows colour, so dust leans to one "
+            "ear and smoke to the other, and you can hear where each species sits."
+        ),
+        element="wind",
     ),
     Dataset(
         id="air-quality",
@@ -108,21 +112,20 @@ DATASETS: list[Dataset] = [
         svs_id="5533",
         svs_url="https://svs.gsfc.nasa.gov/5533/",
         year_range="Model runs",
-        description="High-resolution atmospheric model frames: hazy layers of polluted and clean air.",
-        story="Haze has a sound: slow, heavy pads that thicken where the air is dirty and thin out where it clears.",
-        palette=["#c4b5fd", "#92400e", "#475569", "#e2e8f0"],
-        instrument="pad-pluck",
-        instrument_name="Hazy pad",
-        scale="minor",
-        scale_name="Natural Minor",
-        base_tempo=68,
-        mapping={
-            "Mean luminance": "Pad volume",
-            "Entropy": "Harmonic complexity",
-            "Saturation": "Haze thickness (filter)",
-            "Spatial grid": "Slow stereo drift",
-        },
-        accessibility="A hazy, muted sky with purple and brown layers. The sound is slow and heavy, like breathing through thick air that gradually clears.",
+        source_frame="GEOS-CF near-surface carbon monoxide forecast map",
+        credit="NASA SVS / NASA GMAO GEOS Composition Forecast (GEOS-CF)",
+        dataset_name="GEOS-CF composition forecast",
+        sensor="Model · GEOS-CF",
+        description=(
+            "Modelled surface carbon monoxide as a global concentration field. Purple and "
+            "bright regions carry high CO; grey regions are clean air."
+        ),
+        accessibility=(
+            "A violet and grey world map showing polluted and clean air. The scan is slow and "
+            "the palette is narrow, so the sound stays in a small pitch band — the change is "
+            "in loudness, not melody."
+        ),
+        element="wind",
     ),
     Dataset(
         id="perpetual-ocean",
@@ -131,21 +134,20 @@ DATASETS: list[Dataset] = [
         svs_id="5425",
         svs_url="https://svs.gsfc.nasa.gov/5425/",
         year_range="Animation",
-        description="Major oceanic boundary currents rendered as high-contrast flowing maps.",
-        story="The Gulf Stream and its siblings pulse like arteries. A deep heartbeat under a bright, rushing arpeggio.",
-        palette=["#38bdf8", "#0369a1", "#082f49", "#e0f2fe"],
-        instrument="sine-arp",
-        instrument_name="Deep pulse + arp",
-        scale="dorian",
-        scale_name="Dorian",
-        base_tempo=88,
-        mapping={
-            "Edge density": "Current speed",
-            "Luminance": "Pulse depth",
-            "Spatial grid": "Arpeggio direction",
-            "Hue": "Chord root",
-        },
-        accessibility="A dark ocean with bright, fast-moving boundary currents. The sound has a deep pulsing heartbeat with bright notes rushing along the currents.",
+        source_frame="Western boundary currents, surface speed fields",
+        credit="NASA SVS / ECCO2 ocean state estimate (NASA/JPL)",
+        dataset_name="ECCO2 ocean currents",
+        sensor="Model · MITgcm ECCO2",
+        description=(
+            "High-contrast surface current maps: bright filaments are fast-moving boundary "
+            "currents such as the Gulf Stream."
+        ),
+        accessibility=(
+            "Dark ocean with bright ribbon-like currents. Because the image is mostly dark, "
+            "most of the scan is quiet; the fast currents are the loud, high passages you "
+            "hear cutting through."
+        ),
+        element="ocean",
     ),
     Dataset(
         id="co2",
@@ -154,67 +156,129 @@ DATASETS: list[Dataset] = [
         svs_id="5196",
         svs_url="https://svs.gsfc.nasa.gov/5196/",
         year_range="Animation",
-        description="Global CO₂ concentrations evolving over time — the planet's carbon breath.",
-        story="A low, slow drone that swells where CO₂ gathers. The urgency of the data, held in a single sustained breath.",
-        palette=["#ef4444", "#f97316", "#facc15", "#450a0a"],
-        instrument="drone",
-        instrument_name="Low drone",
-        scale="minor",
-        scale_name="Natural Minor",
-        base_tempo=60,
-        mapping={
-            "Mean luminance": "Drone swell",
-            "Entropy": "Chord tension",
-            "Saturation": "Heat brightness",
-            "Edge density": "Slow pulse",
-        },
-        accessibility="A dark planet with red and orange heat clouds of carbon dioxide. The sound is a low, slow drone that swells and recedes like a deep breath.",
+        source_frame="DYAMOND GEOS CO₂ concentration, global view",
+        credit="NASA SVS / NASA GMAO GEOS, DYAMOND project",
+        dataset_name="DYAMOND GEOS CO₂",
+        sensor="Model · GEOS (DYAMOND)",
+        description=(
+            "Global column carbon dioxide. Yellow and orange mark high concentration, "
+            "blue-green marks low."
+        ),
+        accessibility=(
+            "A brown-yellow world map of carbon dioxide. Because concentration is smooth, the "
+            "pitches glide rather than jump — you hear a slow swell rather than a tune."
+        ),
+        element="wind",
+    ),
+    Dataset(
+        id="hurricane-maria",
+        title="Hurricane Maria — Atlantic landfall",
+        short="Hurricane Maria",
+        svs_id="",
+        svs_url="https://earthobservatory.nasa.gov/images/event/90948/hurricane-maria",
+        year_range="2017",
+        source_frame="Hurricane Maria over the Caribbean, 20 Sep 2017",
+        credit="NASA/NOAA — MODIS and GOES satellite imagery (NASA Earth Observatory)",
+        dataset_name="Hurricane Maria imagery",
+        sensor="Terra/Aqua MODIS · GOES",
+        description=(
+            "A category-5 hurricane. The eye is almost black; the eyewall and spiral bands are "
+            "near-white cloud, so the storm's structure is written directly in brightness."
+        ),
+        accessibility=(
+            "A white spiral storm on dark ocean. Because the scan reads brightness, the eye is a "
+            "sudden drop to near-silence in the middle of the loudest passage — you can literally "
+            "hear the eye pass."
+        ),
+        element="storms",
     ),
     Dataset(
         id="lightning",
-        title="Lightning Events Detected from the ISS 2017–2023",
-        short="ISS Lightning",
+        title="ISS Lightning Imaging Sensor — 12-hour flash count",
+        short="Thunderstorms",
         svs_id="5011",
         svs_url="https://svs.gsfc.nasa.gov/5011/",
-        year_range="2017–2023",
-        description="Lightning flashes detected from orbit — intricate, layered, punctuated visuals.",
-        story="Every bolt is a percussive strike. Sharp, sudden, electric — the sky's own drum kit.",
-        palette=["#ffffff", "#67e8f9", "#0e7490", "#164e63"],
-        instrument="percussive",
-        instrument_name="Percussive strikes",
-        scale="hirajoshi",
-        scale_name="Hirajōshi",
-        base_tempo=120,
-        mapping={
-            "Edge density": "Strike frequency",
-            "FFT high-frequency band": "Crackle layer",
-            "Luminance peaks": "Strike velocity",
-            "Spatial grid": "Strike pan",
-        },
-        accessibility="A dark sky split by bright white and cyan lightning bolts. The sound is sharp and percussive, like sudden electric cracks and thunder.",
+        year_range="2023-10-05",
+        source_frame="Last-12-hour browse image, 2023-10-05 00:02 → 13:34 UTC (13,137 flashes)",
+        credit="NASA ISS-LIS · NASA MSFC / Earthdata",
+        dataset_name="ISS-LIS flash counts",
+        sensor="ISS · LIS",
+        description=(
+            "Flash counts over twelve hours of ISS orbit. Empty ocean rows are silent; the "
+            "storm clusters over the Americas are dense bright pixels."
+        ),
+        accessibility=(
+            "A world map with coloured speckles concentrated over the Americas and a legend strip "
+            "along the bottom. Sparse rows become isolated quiet tones, dense storm rows become "
+            "loud gritty clusters, and the legend row itself is a steady low drone."
+        ),
+        element="storms",
+    ),
+    Dataset(
+        id="wind",
+        title="GEOS Surface Winds and Precipitation",
+        short="Wind",
+        svs_id="5148",
+        svs_url="https://svs.gsfc.nasa.gov/5148/",
+        year_range="2023-08-15",
+        source_frame="GEOS-FP surface winds (green) with GEOS precipitation, 15 Aug 2023 09:00 EDT",
+        credit="NASA SVS / NASA GMAO GEOS-FP",
+        dataset_name="GEOS-FP winds",
+        sensor="Model · GEOS-FP",
+        description=(
+            "Green wind filaments over a true-colour Earth with precipitation in blue-white. "
+            "Bright filaments are strong wind; dark ocean is calm."
+        ),
+        accessibility=(
+            "A blue-and-white Earth with green streaks of wind. The bright storm bands are high "
+            "and loud, the calmer ocean rows low and quiet, and the green filaments add texture "
+            "noise wherever the wind is strong."
+        ),
+        element="wind",
+    ),
+    Dataset(
+        id="wildfire-smoke",
+        title="Wildfire Smoke over the Pacific Northwest",
+        short="Wildfire Smoke",
+        svs_id="",
+        svs_url="https://earthobservatory.nasa.gov/images/151718/smoke-in-the-pacific-northwest",
+        year_range="2023-02-28",
+        source_frame="MODIS true-colour, smoke plumes over British Columbia and Washington",
+        credit="NASA Earth Observatory — MODIS (Joshua Stevens)",
+        dataset_name="MODIS true colour",
+        sensor="Aqua/Terra MODIS",
+        description=(
+            "True-colour satellite view of dense smoke plumes. Grey-white smoke over dark forest "
+            "and ocean: brightness is smoke density."
+        ),
+        accessibility=(
+            "A satellite photograph: dark green forest, brown grassland, white smoke streaming in "
+            "long plumes. Thick smoke rows are bright and noisy; the dark forest rows are low and "
+            "quiet, so the sound follows each plume as the scan moves down the image."
+        ),
+        element="fire",
     ),
     Dataset(
         id="atmospheric-river",
-        title="A 3D View of an Atmospheric River",
+        title="A 3D View of an Atmospheric River from an Earth System Model",
         short="Atmospheric River",
         svs_id="4960",
         svs_url="https://svs.gsfc.nasa.gov/4960/",
         year_range="3D model",
-        description="The path of an atmospheric river — a ribbon of moisture flowing through the sky.",
-        story="Moisture density becomes shimmer: a ribbon of sound that widens and brightens as the river carries more water.",
-        palette=["#e0f2fe", "#7dd3fc", "#0369a1", "#0c4a6e"],
-        instrument="shimmer",
-        instrument_name="Shimmer",
-        scale="major-pentatonic",
-        scale_name="Major Pentatonic",
-        base_tempo=80,
-        mapping={
-            "Luminance": "Shimmer brightness",
-            "Spatial grid": "Ribbon direction (pan)",
-            "Edge density": "Flow density",
-            "Saturation": "Moisture sparkle",
-        },
-        accessibility="A glowing white ribbon of moisture flowing through a dark sky. The sound is a bright shimmering ribbon of notes flowing from one side to the other.",
+        source_frame="Atmospheric river moisture field over the eastern Pacific",
+        credit="NASA SVS / NASA GEOS Earth system model",
+        dataset_name="GEOS atmospheric river",
+        sensor="Model · GEOS",
+        description=(
+            "A 3D-model atmospheric river: a bright ribbon of moisture crossing the Pacific "
+            "toward the US west coast."
+        ),
+        accessibility=(
+            "A dark globe with a bright blue-white ribbon of moisture. The ribbon's rows are "
+            "the loud bright part; the empty sky around it is quiet, so the sound traces the "
+            "river's shape as the scan moves down the frame."
+        ),
+        element="wind",
     ),
     Dataset(
         id="forest-height",
@@ -223,45 +287,44 @@ DATASETS: list[Dataset] = [
         svs_id="4950",
         svs_url="https://svs.gsfc.nasa.gov/4950/",
         year_range="Global map",
-        description="Global canopy elevation — color spectrums signify varying forest heights and densities.",
-        story="Tall canopy sings high, low scrub sings low. A pentatonic marimba walks up the treeline.",
-        palette=["#4ade80", "#16a34a", "#14532d", "#bbf7d0"],
-        instrument="marimba",
-        instrument_name="Marimba plucks",
-        scale="major-pentatonic",
-        scale_name="Major Pentatonic",
-        base_tempo=76,
-        mapping={
-            "Luminance (canopy height)": "Pitch height",
-            "Saturation": "Pluck brightness",
-            "Spatial grid": "Melody contour",
-            "Edge density": "Note density",
-        },
-        accessibility="A green planet covered in forests of different heights. The sound is a gentle marimba melody that rises and falls like the height of the trees.",
+        source_frame="Global forest canopy height, GEDI + Landsat fusion",
+        credit="NASA Earth Observatory / GEDI science team (UMD GLAD), Joshua Stevens",
+        dataset_name="GEDI canopy height",
+        sensor="ISS · GEDI",
+        description=(
+            "Global canopy height on a pale background. Dense tropical forest is bright "
+            "green, desert and ice are near-white, so canopy height also reads as brightness."
+        ),
+        accessibility=(
+            "A pale world map with green forests. Tall canopy rows are bright and sound high; "
+            "bare land and ice sound low and faint. The Amazon, Congo and Indonesia are the "
+            "strongest passages."
+        ),
+        element="land",
     ),
     Dataset(
         id="caldwell-73",
-        title="Data Sonification: Caldwell 73",
+        title="Data Sonification: Caldwell 73 (NGC 1851)",
         short="Caldwell 73",
         svs_id="13786",
         svs_url="https://svs.gsfc.nasa.gov/13786/",
         year_range="Reference",
-        description="NASA's reference sonification of deep-space imagery — luminosity and spatial coordinates become volume and pitch.",
-        story="The original: starlight translated into tone. Our homage maps the nebula's glow to pitch and its position to stereo space.",
-        palette=["#f9a8d4", "#93c5fd", "#312e81", "#fdf4ff"],
-        instrument="deep-space",
-        instrument_name="Deep-space tones",
-        scale="whole-tone",
-        scale_name="Whole Tone",
-        base_tempo=64,
-        mapping={
-            "Luminosity": "Pitch & volume",
-            "Spatial coordinates": "Stereo position",
-            "Hue (pink/blue nebula)": "Scale degree",
-            "Entropy": "Harmonic shimmer",
-        },
-        accessibility="A deep-space nebula in pink and blue with bright stars. The sound is slow, dreamy tones that drift through space, brighter where the stars shine.",
+        source_frame="NGC 1851 globular cluster, Hubble/ground-based composite",
+        credit="NASA/ESA Hubble; image credit for SVS sonification reference",
+        dataset_name="Caldwell 73 imagery",
+        sensor="Hubble Space Telescope",
+        description=(
+            "A dense globular cluster. Following NASA's own sonification method, the vertical "
+            "position of stars is mapped across the frame and brightness sets pitch — this "
+            "track uses exactly that rule."
+        ),
+        accessibility=(
+            "A star cluster on black. Bright stars at the top of the image sound high, stars at "
+            "the bottom sound low, and the gaps between stars are silence — the same "
+            "left-to-right, top-to-bottom scan NASA uses for its own sonifications."
+        ),
+        element="space",
     ),
 ]
 
-DATASETS_BY_ID: dict[str, Dataset] = {d.id: d for d in DATASETS}
+DATASETS_BY_ID = {d.id: d for d in DATASETS}

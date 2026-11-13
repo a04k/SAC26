@@ -5,78 +5,71 @@ export interface Dataset {
   svs_id: string
   svs_url: string
   year_range: string
+  source_frame: string
+  credit: string
+  dataset_name: string
+  sensor: string
   description: string
-  story: string
-  palette: string[]
-  instrument: string
-  instrument_name: string
-  scale: string
-  scale_name: string
-  base_tempo: number
-  mapping: Record<string, string>
   accessibility: string
+  element: 'storms' | 'wind' | 'fire' | 'ocean' | 'land' | 'space' | string
+  series: { asset: string; label: string }[]
 }
 
-export interface Features {
-  mean_hsv: [number, number, number]
-  std_hsv: [number, number, number]
-  luminance_histogram: number[]
-  hue_histogram: number[]
-  saturation_histogram: number[]
-  edge_density: number
-  sharpness: number
-  gradient_mean: number
-  texture_energy: number
-  entropy: number
-  colorfulness: number
-  spatial_grid: number[]
-  grid_size: number
-  centroid: [number, number]
-  fft_radial: number[]
-  dominant_colors: { bgr: [number, number, number]; share: number }[]
-  hue_peaks: number[]
+export type { ScanPayload, ScanTone, SeriesPayload, ScanSnapshot, ScanSeriesStep } from './audio/scanner'
+
+export interface BandRow {
+  band: number
+  label: string
+  luminance: number
+  saturation: number
+  hue: number
+  edge: number
+  texture: number
+  samples: number[]
+}
+
+export interface ScanResponse {
+  dataset: Dataset
+  scan: {
+    duration: number
+    bands: BandRow[]
+    tones: import('./audio/scanner').ScanTone[]
+    normalization: {
+      luminance_p2: number
+      luminance_p98: number
+      gain: number
+      method: string
+    }
+    summary: {
+      mean_luminance: number
+      mean_hue: number
+      mean_pitch_hz: number
+      mean_edge: number
+    }
+    mapping: Record<string, string>
+  }
+  series?: {
+    duration: number
+    steps: import('./audio/scanner').ScanSeriesStep[]
+  }
+}
+
+export interface AnalyzeResponse {
+  filename: string
   width: number
   height: number
+  bands: BandRow[]
+  scan: ScanResponse['scan']
 }
 
-export interface SonParams {
-  root_note: string
-  scale: string
-  scale_name: string
-  instrument: string
-  instrument_name: string
-  tempo: number
-  density: number
-  brightness: number
-  energy: number
-  warmth: number
-  pan_spread: number
-  space: number
-  crackle: number
-  busyness: number
-  chord_degrees: number[]
-  centroid: [number, number]
-}
+export const ELEMENTS = ['storms', 'wind', 'fire', 'ocean', 'land', 'space'] as const
+export type Element = (typeof ELEMENTS)[number]
 
-export interface AnalysisResponse {
-  dataset?: Dataset
-  features: Features
-  params: SonParams
-  filename?: string
-}
-
-export interface NoteEvent {
-  pitch: number
-  pan: number
-  velocity: number
-  age: number
-  kind: 'melody' | 'bass' | 'perc' | 'shimmer'
-}
-
-export interface EngineSnapshot {
-  level: number
-  notes: NoteEvent[]
-  step: number
-  bar: number
-  playing: boolean
+export const ELEMENT_META: Record<string, { label: string; blurb: string }> = {
+  storms: { label: 'Storms', blurb: 'Hurricanes and thunderstorms' },
+  wind: { label: 'Wind & air', blurb: 'Winds, aerosols, carbon' },
+  fire: { label: 'Fire', blurb: 'Wildfire smoke' },
+  ocean: { label: 'Ocean', blurb: 'Currents and sea temperature' },
+  land: { label: 'Land', blurb: 'Cities and forests' },
+  space: { label: 'Space', blurb: "NASA's own sonification method" },
 }

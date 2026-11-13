@@ -1,5 +1,29 @@
 # PLAN — The Earth Information Jukebox ("Terra Jukebox")
 
+## 0. Revision 2 — what changed and why
+
+The first build used procedurally generated frames and a musical synth layer
+(scale, tempo, reverb, "instruments"). That was judged too musical and not
+grounded in real resources. Revision 2 removes both:
+
+- **Real imagery only.** Fifteen authentic NASA frames are bundled in
+  `backend/app/assets/frames/`, each traced to its SVS/Earth Observatory page
+  and credit line (`SOURCES.md`). No drawings, no synthetic frames anywhere.
+- **No composition.** The musical layer is deleted. There is no tempo, scale,
+  chord, instrument or reverb. A frame is measured row by row and each
+  measurement maps to exactly one audio parameter through a fixed linear rule.
+- **A real jukebox.** The start screen is a wooden cartridge cabinet with an
+  animated record rack, spinning deck and tone arm. Choosing a record flips to
+  a listening view of the real frame with a live scan line.
+- **Storms, wind and fire** added as first-class records (Hurricane Maria,
+  ISS-LIS thunderstorms, GEOS-FP winds, wildfire smoke) alongside the ten
+  challenge datasets.
+
+The sections below are the original design; where they conflict, the rules in
+this revision (and in `backend/app/scan.py`) are authoritative.
+
+---
+
 ## 1. The challenge, distilled
 
 NASA's Earth Information Center (EIC) produces stunning visualizations of a
@@ -49,11 +73,10 @@ Selecting a track:
                 │ REST /api (Vite proxy in dev)                │
 ┌───────────────▼──────────────────────────────────────────────▼──────────────────────────────────┐
 │  Backend (FastAPI + OpenCV + NumPy)                                                            │
-│  vision.py   → 16 feature families from pixels (HSV hist, Canny, gradient, entropy, FFT, k-means)│
-│  sonify.py   → features → SonificationParams (root, scale, tempo, density, brightness, pan…)    │
-│  synth.py    → offline WAV renderer (additive pad + arp + bass + percussion)                    │
-│  frames.py   → procedural EIC-style frames per dataset (stand-ins for SVS frames; upload any)   │
-│  datasets.py → catalog of 10 EIC tracks with SVS links, palettes, instruments, recipes          │
+│  scan.py     → 24 measured latitude bands → tones (no musical mapping layer)                    │
+│  synth.py    → offline WAV renderer: one sine per measured tone + measured noise                │
+│  frames.py   → loads the real NASA frame assets (no procedural imagery)                          │
+│  datasets.py → 13 records: SVS links, source frame, credit, sensor, accessibility text          │
 └───────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 

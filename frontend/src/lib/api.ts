@@ -1,8 +1,6 @@
-import type { AnalysisResponse, Dataset, Features, SonParams } from './types'
+import type { AnalyzeResponse, Dataset, ScanResponse } from './types'
 
-// Vite injects import.meta.env; guard so the module also loads under Node (tests).
-const BASE =
-  (import.meta.env?.VITE_API_URL as string | undefined) ?? ''
+const BASE = (import.meta.env?.VITE_API_URL as string | undefined) ?? ''
 
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, init)
@@ -15,19 +13,26 @@ export const api = {
 
   dataset: (id: string) => json<Dataset>(`/api/datasets/${id}`),
 
-  analysis: (id: string) =>
-    json<{ dataset: Dataset; features: Features; params: SonParams }>(
-      `/api/datasets/${id}/features`,
+  /** The measured score for one EIC frame (per-band tones + optional series). */
+  scan: (id: string) => json<ScanResponse>(`/api/datasets/${id}/scan`),
+
+  /** Per-row FFT energy, for drawing where the sound comes from. */
+  spectrum: (id: string) =>
+    json<{ rows: number; bands: { band: number; energy: number[] }[] }>(
+      `/api/datasets/${id}/spectrum`,
     ),
 
   frameUrl: (id: string) => `${BASE}/api/datasets/${id}/frame.png`,
+
+  assetUrl: (id: string, asset: string) =>
+    `${BASE}/api/datasets/${id}/assets/${asset}.png`,
 
   renderUrl: (id: string) => `${BASE}/api/datasets/${id}/render.wav`,
 
   analyze: async (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return json<AnalysisResponse>('/api/analyze', { method: 'POST', body: form })
+    return json<AnalyzeResponse>('/api/analyze', { method: 'POST', body: form })
   },
 }
 

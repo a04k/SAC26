@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react'
-import { engine } from '../lib/audio/engine'
-import type { Features } from '../lib/types'
+import { useEffect, useRef, useState } from 'react'
+import { player } from '../lib/audio/scanner'
+import type { BandRow } from '../lib/types'
 
 const FPS = 30
 
-function useCanvasDraw(draw: (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void, deps: unknown[] = []) {
+function useCanvasDraw(
+  draw: (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void,
+  deps: unknown[] = [],
+) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     let raf = 0
@@ -35,225 +38,226 @@ function useCanvasDraw(draw: (ctx: CanvasRenderingContext2D, w: number, h: numbe
   return ref
 }
 
-export function Spectrum({ accent }: { accent: string }) {
+/** Live output spectrum — what is actually reaching your ears. */
+export function Spectrum({ accent = '#22d3ee' }: { accent?: string }) {
   const ref = useCanvasDraw((ctx, w, h) => {
-    const data = engine.getFrequencyData()
+    const data = player.getFrequencyData()
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'
+    for (let i = 1; i < 4; i++) {
+      const y = (i / 4) * h
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(w, y)
+      ctx.stroke()
+    }
     if (!data) {
-      ctx.fillStyle = 'rgba(255,255,255,0.14)'
-      ctx.font = '11px ui-sans-serif'
-      ctx.fillText('Press play to see the spectrum', 12, h / 2)
+      ctx.fillStyle = 'rgba(255,255,255,0.2)'
+      ctx.font = '10px ui-sans-serif'
+      ctx.fillText('press play', 8, h / 2)
       return
     }
-    const bins = 64
-    const step = Math.floor((data.length * 0.62) / bins)
-    const bw = w / bins
+    const bins = 96
+    const maxBin = Math.floor(data.length * 0.5)
+    ctx.beginPath()
     for (let i = 0; i < bins; i++) {
-      let sum = 0
-      for (let j = 0; j < step; j++) sum += data[i * step + j]
-      const v = sum / step / 255
-      const bh = Math.max(2, v ** 1.5 * h)
-      const grad = ctx.createLinearGradient(0, h, 0, h - bh)
-      grad.addColorStop(0, accent)
-      grad.addColorStop(1, '#ffffff')
-      ctx.fillStyle = grad
-      ctx.globalAlpha = 0.28 + v * 0.72
-      ctx.fillRect(i * bw + 1, h - bh, bw - 2, bh)
+      const v = data[Math.floor((i / bins) * maxBin)] / 255
+      const x = (i / (bins - 1)) * w
+      const y = h - Math.max(1, v ** 1.6 * h)
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
     }
-    ctx.globalAlpha = 1
+    ctx.strokeStyle = accent
+    ctx.lineWidth = 1.4
+    ctx.stroke()
+    ctx.lineTo(w, h)
+    ctx.lineTo(0, h)
+    ctx.closePath()
+    ctx.fillStyle = `${accent}22`
+    ctx.fill()
   }, [accent])
   return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
 }
 
-export function Waveform({ accent }: { accent: string }) {
+export function Waveform({ accent = '#22d3ee' }: { accent?: string }) {
   const ref = useCanvasDraw((ctx, w, h) => {
-    const data = engine.getTimeDomainData()
-    ctx.strokeStyle = accent
-    ctx.lineWidth = 1.6
+    const data = player.getTimeDomainData()
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
     ctx.beginPath()
+    ctx.moveTo(0, h / 2)
+    ctx.lineTo(w, h / 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.strokeStyle = accent
+    ctx.lineWidth = 1.2
     if (!data) {
       ctx.moveTo(0, h / 2)
       ctx.lineTo(w, h / 2)
     } else {
       for (let i = 0; i < data.length; i++) {
         const x = (i / (data.length - 1)) * w
-        const y = h / 2 + ((data[i] - 128) / 128) * (h / 2) * 0.94
-        if (i === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-    }
-    ctx.stroke()
-    ctx.globalAlpha = 0.16
-    ctx.lineTo(w, h / 2)
-    ctx.lineTo(0, h / 2)
-    ctx.fillStyle = accent
-    ctx.fill()
-    ctx.globalAlpha = 1
-  }, [accent])
-  return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
-}
-
-export function Polar({ accent }: { accent: string }) {
-  const ref = useCanvasDraw((ctx, w, h, t) => {
-    const data = engine.getFrequencyData()
-    const cx = w / 2
-    const cy = h / 2
-    const R = Math.min(w, h) / 2 - 8
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)'
-    for (let r = 0.25; r <= 1; r += 0.25) {
-      ctx.beginPath()
-      ctx.arc(cx, cy, R * r, 0, Math.PI * 2)
-      ctx.stroke()
-    }
-    const spokes = 96
-    for (let i = 0; i < spokes; i++) {
-      const idx = Math.floor((i / spokes) * (data ? data.length * 0.55 : 1))
-      const v = data ? data[idx] / 255 : 0.12 + 0.06 * Math.sin(i * 0.7 + t)
-      const a = (i / spokes) * Math.PI * 2 - Math.PI / 2
-      const len = R * (0.18 + v ** 1.3 * 0.82)
-      ctx.strokeStyle = accent
-      ctx.globalAlpha = 0.22 + v * 0.78
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(cx + Math.cos(a) * R * 0.16, cy + Math.sin(a) * R * 0.16)
-      ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len)
-      ctx.stroke()
-    }
-    ctx.globalAlpha = 1
-  }, [accent])
-  return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
-}
-
-export function Histogram({
-  values,
-  accent,
-  label,
-}: {
-  values: number[]
-  accent: string
-  label: string
-}) {
-  const ref = useCanvasDraw((ctx, w, h) => {
-    const max = Math.max(...values, 0.0001)
-    const bw = w / values.length
-    values.forEach((v, i) => {
-      const bh = (v / max) * (h - 16)
-      ctx.fillStyle = accent
-      ctx.globalAlpha = 0.35 + (v / max) * 0.65
-      ctx.fillRect(i * bw, h - bh, Math.max(1, bw - 1.5), bh)
-    })
-    ctx.globalAlpha = 0.85
-    ctx.fillStyle = '#e2e8f0'
-    ctx.font = '10px ui-sans-serif'
-    ctx.fillText(label, 4, 12)
-    ctx.globalAlpha = 1
-  }, [values, accent, label])
-  return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
-}
-
-export function SpatialGrid({ features, accent }: { features: Features; accent: string }) {
-  const n = features.grid_size
-  const ref = useCanvasDraw((ctx, w, h) => {
-    const cell = Math.min(w, h) / n
-    const level = engine.getLevel()
-    const ox = (w - cell * n) / 2
-    const oy = (h - cell * n) / 2
-    features.spatial_grid.forEach((v, i) => {
-      const x = ox + (i % n) * cell
-      const y = oy + Math.floor(i / n) * cell
-      ctx.fillStyle = accent
-      ctx.globalAlpha = 0.08 + v * 0.72 + level * 0.3
-      ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2)
-    })
-    ctx.globalAlpha = 0.24
-    ctx.strokeStyle = '#ffffff'
-    ctx.strokeRect(ox, oy, cell * n, cell * n)
-    ctx.globalAlpha = 1
-  }, [features, accent])
-  return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
-}
-
-export function FeatureRadar({ features, accent }: { features: Features; accent: string }) {
-  const values = [
-    features.edge_density,
-    features.entropy / 5,
-    features.colorfulness / 120,
-    features.mean_hsv[2] / 255,
-    features.mean_hsv[1] / 255,
-    features.fft_radial[features.fft_radial.length - 1] ?? 0,
-    features.centroid[0],
-  ]
-  const labels = ['Edges', 'Entropy', 'Color', 'Bright', 'Sat', 'HiFreq', 'Pan']
-  const ref = useCanvasDraw((ctx, w, h) => {
-    const cx = w / 2
-    const cy = h / 2 + 4
-    const R = Math.min(w, h) / 2 - 18
-    const n = values.length
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)'
-    for (let ring = 1; ring <= 3; ring++) {
-      ctx.beginPath()
-      for (let i = 0; i <= n; i++) {
-        const a = (i / n) * Math.PI * 2 - Math.PI / 2
-        const r = (R * ring) / 3
-        const x = cx + Math.cos(a) * r
-        const y = cy + Math.sin(a) * r
+        const y = h / 2 + ((data[i] - 128) / 128) * (h / 2) * 0.9
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
       }
-      ctx.stroke()
     }
-    ctx.beginPath()
-    values.forEach((v, i) => {
-      const a = (i / n) * Math.PI * 2 - Math.PI / 2
-      const r = R * Math.min(1, Math.max(0.05, v))
-      const x = cx + Math.cos(a) * r
-      const y = cy + Math.sin(a) * r
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
-    })
-    ctx.closePath()
-    ctx.fillStyle = accent
-    ctx.globalAlpha = 0.22
-    ctx.fill()
-    ctx.globalAlpha = 0.95
-    ctx.strokeStyle = accent
-    ctx.lineWidth = 1.6
     ctx.stroke()
-    ctx.globalAlpha = 0.7
-    ctx.fillStyle = '#cbd5e1'
-    ctx.font = '9px ui-sans-serif'
-    labels.forEach((l, i) => {
-      const a = (i / n) * Math.PI * 2 - Math.PI / 2
-      const x = cx + Math.cos(a) * (R + 11)
-      const y = cy + Math.sin(a) * (R + 11)
-      ctx.textAlign = 'center'
-      ctx.fillText(l, x, y + 3)
-    })
-    ctx.globalAlpha = 1
-  }, [features, accent])
+  }, [accent])
   return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
 }
 
-export function NoteWaterfall({ accent }: { accent: string }) {
+/**
+ * The scan itself: 24 stacked bands. Bar length = measured brightness,
+ * opacity = edge/texture density, and the active band is outlined.
+ */
+export function BandProfile({ bands }: { bands: BandRow[] }) {
   const ref = useCanvasDraw((ctx, w, h) => {
-    const notes = engine.getNotes()
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)'
-    for (let i = 0; i <= 8; i++) {
-      const y = (i / 8) * h
+    const snap = player.getSnapshot()
+    const n = bands.length
+    const rowH = h / n
+    const labelW = 30
+    bands.forEach((b, i) => {
+      const y = i * rowH
+      const len = (w - labelW - 4) * b.luminance
+      ctx.fillStyle = b.luminance > 0.5 ? '#e8f4ff' : '#7dd3fc'
+      ctx.globalAlpha = 0.25 + Math.min(0.7, b.edge * 6 + b.texture * 2)
+      ctx.fillRect(labelW, y + 0.6, len, Math.max(1, rowH - 1.6))
+      if (snap.playing && snap.band === i) {
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 1
+        ctx.strokeRect(labelW - 1, y + 0.3, w - labelW - 2, rowH - 0.6)
+      }
+    })
+    ctx.globalAlpha = 0.55
+    ctx.fillStyle = '#cbd5e1'
+    ctx.font = `${Math.max(6, Math.min(8, rowH))}px ui-monospace`
+    bands.forEach((b, i) => {
+      if (i % 3 === 0) ctx.fillText(b.label, 0, i * rowH + rowH - 0.5)
+    })
+    ctx.globalAlpha = 1
+  }, [bands])
+  return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
+}
+
+/** Where the energy in each row sits across the band's own frequency content. */
+export function RowSpectrum({ bands }: { bands: { band: number; energy: number[] }[] }) {
+  const ref = useCanvasDraw((ctx, w, h) => {
+    const snap = player.getSnapshot()
+    const n = bands.length
+    const cellW = w / (n || 1)
+    bands.forEach((row, i) => {
+      row.energy.forEach((e, k) => {
+        ctx.fillStyle = ['#1e3a8a', '#0e7490', '#22d3ee', '#e0f2fe'][k]
+        ctx.globalAlpha = 0.18 + e * 0.8
+        const bh = (h / 4) * 0.92
+        ctx.fillRect(i * cellW, k * (h / 4), Math.max(1, cellW - 0.8), bh)
+      })
+    })
+    if (snap.playing && snap.band >= 0) {
+      ctx.globalAlpha = 1
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = 1
+      ctx.strokeRect(snap.band * cellW, 0, cellW, h)
+    }
+    ctx.globalAlpha = 1
+  }, [bands])
+  return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
+}
+
+/** Pitch over time: the melody of brightness as the scan proceeds. */
+export function PitchTrace({ tones }: { tones: { time: number; duration: number; freq: number }[] }) {
+  const ref = useCanvasDraw((ctx, w, h) => {
+    const snap = player.getSnapshot()
+    const lo = 100
+    const hi = 660
+    const yOf = (f: number) => h - ((Math.log2(f) - Math.log2(lo)) / (Math.log2(hi) - Math.log2(lo))) * (h - 12) - 6
+    // octave guides
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)'
+    ctx.fillStyle = 'rgba(255,255,255,0.22)'
+    ctx.font = '8px ui-monospace'
+    ;[110, 220, 440].forEach((f) => {
+      const y = yOf(f)
       ctx.beginPath()
       ctx.moveTo(0, y)
       ctx.lineTo(w, y)
       ctx.stroke()
-    }
-    for (const n of notes) {
-      const x = ((n.age / 2.4) * 0.7 + ((n.pitch - 40) / 52) * 0.3) * w
-      const y = (1 - n.pan / 2 - 0.5) * h
-      const fade = Math.max(0, 1 - n.age / 2.4)
-      ctx.fillStyle = n.kind === 'bass' ? '#a855f7' : n.kind === 'perc' ? '#f97316' : accent
-      ctx.globalAlpha = fade * (0.4 + n.velocity * 0.6)
-      const r = 1.5 + n.velocity * 2.5
+      ctx.fillText(`${f}Hz`, 2, y - 2)
+    })
+    const total = tones.length ? tones[tones.length - 1].time + tones[tones.length - 1].duration : 1
+    ctx.strokeStyle = '#a5f3fc'
+    ctx.lineWidth = 1.6
+    ctx.beginPath()
+    tones.forEach((t, i) => {
+      const x = (t.time / total) * w
+      const y = yOf(t.freq)
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+    })
+    ctx.stroke()
+    tones.forEach((t) => {
+      const x = (t.time / total) * w
+      ctx.fillStyle = '#e0f2fe'
       ctx.beginPath()
-      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.arc(x, yOf(t.freq), 1.2, 0, Math.PI * 2)
       ctx.fill()
+    })
+    if (snap.duration) {
+      const px = (snap.position / snap.duration) * w
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(px, 0)
+      ctx.lineTo(px, h)
+      ctx.stroke()
     }
-    ctx.globalAlpha = 1
-  }, [accent])
+  }, [tones])
   return <canvas ref={ref} className="h-full w-full" aria-hidden="true" />
+}
+
+/** Subscribe to the player at 10 Hz for DOM-rendered panels. */
+export function usePlayerLabel(): { seriesLabel: string | null; band: number } {
+  const [state, setState] = useState({ seriesLabel: null as string | null, band: -1 })
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const s = player.getSnapshot()
+      setState((prev) =>
+        prev.seriesLabel === s.seriesLabel && prev.band === s.band
+          ? prev
+          : { seriesLabel: s.seriesLabel, band: s.band },
+      )
+    }, 100)
+    return () => window.clearInterval(id)
+  }, [])
+  return state
+}
+
+export function SeriesStrip({
+  steps,
+}: {
+  steps: { label: string; freq: number; relative_brightness?: number }[]
+}) {
+  const snapNow = usePlayerLabel()
+  return (
+    <div className="flex h-full flex-col justify-center gap-1 px-1">
+      {steps.map((s) => {
+        const active = snapNow.seriesLabel === s.label
+        return (
+          <div key={s.label} className="flex items-center gap-1.5">
+            <span className={`w-16 shrink-0 truncate text-[9px] ${active ? 'text-white' : 'text-white/40'}`}>
+              {s.label}
+            </span>
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-amber-300"
+                style={{
+                  width: `${Math.max(4, (s.relative_brightness ?? 0.5) * 100)}%`,
+                  opacity: active ? 1 : 0.45,
+                }}
+              />
+            </div>
+            <span className="w-12 shrink-0 text-right font-mono text-[8.5px] text-white/35">
+              {s.freq.toFixed(0)}Hz
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
 }

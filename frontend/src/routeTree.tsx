@@ -1,7 +1,7 @@
 import { createRootRoute, createRoute } from '@tanstack/react-router'
 import { RootLayout } from './routes/__root'
 import { JukeboxPage } from './routes/index'
-import { AnalyzePage } from './routes/analyze'
+import { ScanPage } from './routes/scan'
 import { AboutPage } from './routes/about'
 
 const rootRoute = createRootRoute({ component: RootLayout })
@@ -12,10 +12,10 @@ const indexRoute = createRoute({
   component: JukeboxPage,
 })
 
-const analyzeRoute = createRoute({
+const scanRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/analyze',
-  component: AnalyzePage,
+  path: '/scan',
+  component: ScanPage,
 })
 
 const aboutRoute = createRoute({
@@ -26,6 +26,6 @@ const aboutRoute = createRoute({
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
-  analyzeRoute,
+  scanRoute,
   aboutRoute,
 ])
