@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+backend/.venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+npm-debug.log*
+
+# Generated audio / frames (regenerate with backend/scripts/render_playlist.py)
+playlist/
+frames/
+*.wav
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.local
+.env
+.env.*
